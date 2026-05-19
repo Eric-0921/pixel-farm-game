@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, user-scalable=yes">
+  <title>🌾 像素农场</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 登录/注册界面 -->
+  <div id="auth-screen" class="screen" role="main" aria-label="像素农场登录注册">
+    <div class="auth-panel pixel-panel">
+      <h1 class="pixel-title">🌾 像素农场</h1>
+      <p class="pixel-subtitle">种植 · 浇水 · 收获</p>
+      <div class="auth-tabs" role="tablist" aria-label="登录注册切换">
+        <button class="pixel-btn tab-btn active" data-tab="login" role="tab" aria-selected="true" aria-controls="login-form" id="tab-login">登录</button>
+        <button class="pixel-btn tab-btn" data-tab="register" role="tab" aria-selected="false" aria-controls="register-form" id="tab-register">注册</button>
+      </div>
+
+      <form id="login-form" class="auth-form" role="tabpanel" aria-labelledby="tab-login" autocomplete="on">
+        <input type="text" id="login-username" class="pixel-input" placeholder="用户名" maxlength="20" autocomplete="username" aria-label="用户名" required>
+        <input type="password" id="login-password" class="pixel-input" placeholder="密码" maxlength="30" autocomplete="current-password" aria-label="密码" required>
+        <button type="submit" id="login-btn" class="pixel-btn primary">开始游戏</button>
+      </form>
+
+      <form id="register-form" class="auth-form hidden" role="tabpanel" aria-labelledby="tab-register" autocomplete="on">
+        <input type="text" id="register-username" class="pixel-input" placeholder="用户名" maxlength="20" autocomplete="username" aria-label="用户名" required>
+        <input type="text" id="register-display" class="pixel-input" placeholder="显示名称（可选）" maxlength="20" aria-label="显示名称">
+        <input type="password" id="register-password" class="pixel-input" placeholder="密码（至少4位）" maxlength="30" autocomplete="new-password" aria-label="密码" required>
+        <button type="submit" id="register-btn" class="pixel-btn primary">创建农场</button>
+      </form>
+
+      <p id="auth-message" class="auth-message" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- 游戏主界面 -->
+  <div id="game-screen" class="screen hidden" role="main" aria-label="像素农场游戏">
+    <!-- 顶部信息栏 -->
+    <header class="top-bar pixel-panel" role="banner">
+      <div class="user-info">
+        <span class="pixel-text user-name">👤 <span id="player-name">玩家</span></span>
+        <span class="pixel-text user-coins">💰 <span id="player-coins">0</span></span>
+        <span class="pixel-text user-exp">⭐ <span id="player-exp">0</span></span>
+        <span class="pixel-text user-level">🏆 Lv.<span id="player-level">1</span></span>
+      </div>
+      <div class="game-actions">
+        <div class="selected-seed-display" id="selected-seed-display" aria-label="已选种子">
+          <span class="seed-label">未选择种子</span>
+        </div>
+        <button id="btn-seeds" class="pixel-btn small" title="选择种子" aria-label="选择种子">🌱 种子</button>
+        <button id="btn-notifications" class="pixel-btn small" title="通知" aria-label="查看通知">
+          🔔 <span id="notif-badge" class="badge hidden" aria-label="未读通知数量">0</span>
+        </button>
+        <button id="btn-friends" class="pixel-btn small" title="好友" aria-label="好友">👥 好友</button>
+        <button id="btn-refresh" class="pixel-btn small" title="刷新农场" aria-label="刷新农场">🔄</button>
+        <button id="btn-logout" class="pixel-btn small" title="退出登录" aria-label="退出登录">退出</button>
+      </div>
+    </header>
+
+    <!-- 游戏画布 -->
+    <div class="game-container">
+      <canvas id="game-canvas"></canvas>
+      <div id="game-loading" class="game-loading hidden">
+        <span class="loading-text">加载中...</span>
+      </div>
+      <!-- 地块信息悬浮提示 -->
+      <div id="plot-tooltip" class="plot-tooltip hidden">
+        <div class="tooltip-title" id="tooltip-title"></div>
+        <div class="tooltip-content" id="tooltip-content"></div>
+      </div>
+    </div>
+
+    <!-- 底部工具栏 -->
+    <nav class="bottom-bar pixel-panel" role="navigation" aria-label="游戏工具栏">
+      <div class="tool-selector">
+        <button class="pixel-btn tool-btn active" data-tool="cursor" title="查看 (1)">
+          <span class="tool-icon">👆</span>
+          <span class="tool-key">1</span>
+        </button>
+        <button class="pixel-btn tool-btn" data-tool="plant" title="种植 (2)">
+          <span class="tool-icon">🌱</span>
+          <span class="tool-key">2</span>
+        </button>
+        <button class="pixel-btn tool-btn" data-tool="water" title="浇水 (3)">
+          <span class="tool-icon">💧</span>
+          <span class="tool-key">3</span>
+        </button>
+        <button class="pixel-btn tool-btn" data-tool="harvest" title="收获 (4)">
+          <span class="tool-icon">✂️</span>
+          <span class="tool-key">4</span>
+        </button>
+      </div>
+      <div class="game-hint">
+        <span id="current-hint" class="pixel-text hint-text">点击地块进行操作</span>
+      </div>
+      <div class="keyboard-hint">
+        <span class="pixel-text hint-text">按 1-4 切换工具</span>
+      </div>
+    </nav>
+  </div>
+
+  <!-- 种子选择弹窗 -->
+  <div id="seed-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="选择种子">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text" id="seed-modal-title">🌱 选择种子</h2>
+        <button class="pixel-btn close-btn" aria-label="关闭种子弹窗">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-coins">当前金币: <span id="modal-coins">0</span> 💰</p>
+        <div id="seed-list" class="seed-list" role="listbox" aria-labelledby="seed-modal-title"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通知弹窗 -->
+  <div id="notif-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="通知列表">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text" id="notif-modal-title">🔔 通知</h2>
+        <button class="pixel-btn close-btn" data-close="notif" aria-label="关闭通知弹窗">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="notif-list" class="notif-list" role="log" aria-labelledby="notif-modal-title">
+          <p class="empty-text">暂无通知</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 好友弹窗 -->
+  <div id="friend-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="好友列表">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text" id="friend-modal-title">👥 好友</h2>
+        <button class="pixel-btn close-btn" data-close="friend" aria-label="关闭好友弹窗">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="friend-list" class="friend-list" aria-labelledby="friend-modal-title">
+          <p class="empty-text">好友功能即将上线</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 通知 -->
+  <div id="notification-toast" class="toast hidden" role="alert" aria-live="assertive" aria-atomic="true">
+    <span id="toast-message" class="pixel-text"></span>
+  </div>
+
+  <!-- 游戏脚本 -->
+  <script src="js/network.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
