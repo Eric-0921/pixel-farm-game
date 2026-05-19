@@ -1,4 +1,4 @@
-const { db, saveDatabase } = require('../database');
+const { getDatabase } = require('../database');
 const { sendToUser } = require('../websocket');
 
 const ACHIEVEMENTS = [
@@ -31,7 +31,8 @@ function parseCondition(condition) {
  * @returns {Object} — 各项统计数据
  */
 function getUserStats(userId) {
-  const stats = db.user_stats.filter(s => s.user_id === userId);
+  const db = getDatabase();
+  const stats = db.prepare('SELECT * FROM user_stats WHERE user_id = ?').all(userId);
   const result = {};
   for (const s of stats) {
     result[s.stat_key] = s.stat_value;
@@ -66,36 +67,34 @@ function getUserStats(userId) {
 function incrementStat(userId, statKey, delta = 1) {
   if (!statKey || delta === 0) return;
 
-  let stat = db.user_stats.find(s => s.user_id === userId && s.stat_key === statKey);
+  const db = getDatabase();
+
+  const stat = db.prepare('SELECT * FROM user_stats WHERE user_id = ? AND stat_key = ?').get(userId, statKey);
+  const now = new Date().toISOString();
+
   if (stat) {
-    stat.stat_value += delta;
-    stat.updated_at = new Date().toISOString();
+    db.prepare('UPDATE user_stats SET stat_value = stat_value + ?, updated_at = ? WHERE id = ?')
+      .run(delta, now, stat.id);
   } else {
-    const statId = db._seq.user_stats || 1;
-    db._seq.user_stats = statId + 1;
-    stat = {
-      id: statId,
-      user_id: userId,
-      stat_key: statKey,
-      stat_value: delta,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    db.user_stats.push(stat);
+    db.prepare('INSERT INTO user_stats (user_id, stat_key, stat_value) VALUES (?, ?, ?)')
+      .run(userId, statKey, delta);
   }
+
+  // 获取更新后的值
+  const updatedStat = db.prepare('SELECT * FROM user_stats WHERE user_id = ? AND stat_key = ?').get(userId, statKey);
 
   // 同步更新 max_coins
   if (statKey === 'max_coins') {
-    const user = db.users.find(u => u.id === userId);
-    if (user && user.coins > stat.stat_value) {
-      stat.stat_value = user.coins;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (user && user.coins > updatedStat.stat_value) {
+      db.prepare('UPDATE user_stats SET stat_value = ?, updated_at = ? WHERE id = ?')
+        .run(user.coins, now, updatedStat.id);
+      updatedStat.stat_value = user.coins;
     }
   }
 
-  saveDatabase();
-
   // 检查并解锁成就
-  checkAndUnlock(userId, statKey, stat.stat_value);
+  checkAndUnlock(userId, statKey, updatedStat ? updatedStat.stat_value : delta);
 }
 
 /**
@@ -105,27 +104,20 @@ function incrementStat(userId, statKey, delta = 1) {
  * @param {number} value
  */
 function setStat(userId, statKey, value) {
-  let stat = db.user_stats.find(s => s.user_id === userId && s.stat_key === statKey);
+  const db = getDatabase();
+
+  const stat = db.prepare('SELECT * FROM user_stats WHERE user_id = ? AND stat_key = ?').get(userId, statKey);
+  const now = new Date().toISOString();
+
   if (stat) {
-    stat.stat_value = value;
-    stat.updated_at = new Date().toISOString();
+    db.prepare('UPDATE user_stats SET stat_value = ?, updated_at = ? WHERE id = ?')
+      .run(value, now, stat.id);
   } else {
-    const statId = db._seq.user_stats || 1;
-    db._seq.user_stats = statId + 1;
-    stat = {
-      id: statId,
-      user_id: userId,
-      stat_key: statKey,
-      stat_value: value,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    db.user_stats.push(stat);
+    db.prepare('INSERT INTO user_stats (user_id, stat_key, stat_value) VALUES (?, ?, ?)')
+      .run(userId, statKey, value);
   }
 
-  saveDatabase();
-
-  checkAndUnlock(userId, statKey, stat.stat_value);
+  checkAndUnlock(userId, statKey, value);
 }
 
 /**
@@ -135,7 +127,8 @@ function setStat(userId, statKey, value) {
  * @param {number} value — 当前值
  */
 function checkAndUnlock(userId, statKey, value) {
-  const userAchievements = db.user_achievements.filter(ua => ua.user_id === userId);
+  const db = getDatabase();
+  const userAchievements = db.prepare('SELECT * FROM user_achievements WHERE user_id = ?').all(userId);
   const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
 
   for (const achievement of ACHIEVEMENTS) {
@@ -157,35 +150,27 @@ function checkAndUnlock(userId, statKey, value) {
  * @param {Object} achievement
  */
 function unlockAchievement(userId, achievement) {
-  const existing = db.user_achievements.find(
-    ua => ua.user_id === userId && ua.achievement_id === achievement.id
-  );
+  const db = getDatabase();
+
+  const existing = db.prepare('SELECT * FROM user_achievements WHERE user_id = ? AND achievement_id = ?').get(userId, achievement.id);
   if (existing) return;
 
-  const uaId = db._seq.user_achievements || 1;
-  db._seq.user_achievements = uaId + 1;
-
   const now = new Date().toISOString();
-  db.user_achievements.push({
-    id: uaId,
-    user_id: userId,
-    achievement_id: achievement.id,
-    unlocked_at: now,
-    created_at: now
-  });
+  db.prepare('INSERT INTO user_achievements (user_id, achievement_id, unlocked_at) VALUES (?, ?, ?)')
+    .run(userId, achievement.id, now);
 
   // 发放奖励金币
-  const user = db.users.find(u => u.id === userId);
+  db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').run(achievement.reward, userId);
+
+  // 更新最大金币
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (user) {
-    user.coins += achievement.reward;
-    // 更新最大金币
-    const maxCoinsStat = db.user_stats.find(s => s.user_id === userId && s.stat_key === 'max_coins');
+    const maxCoinsStat = db.prepare("SELECT * FROM user_stats WHERE user_id = ? AND stat_key = 'max_coins'").get(userId);
     if (maxCoinsStat && user.coins > maxCoinsStat.stat_value) {
-      maxCoinsStat.stat_value = user.coins;
+      db.prepare('UPDATE user_stats SET stat_value = ?, updated_at = ? WHERE id = ?')
+        .run(user.coins, now, maxCoinsStat.id);
     }
   }
-
-  saveDatabase();
 
   // WebSocket 通知
   sendToUser(userId, {
@@ -206,7 +191,8 @@ function unlockAchievement(userId, achievement) {
  */
 function getUserAchievements(userId) {
   const stats = getUserStats(userId);
-  const userAchievements = db.user_achievements.filter(ua => ua.user_id === userId);
+  const db = getDatabase();
+  const userAchievements = db.prepare('SELECT * FROM user_achievements WHERE user_id = ?').all(userId);
   const unlockedMap = new Map();
   for (const ua of userAchievements) {
     unlockedMap.set(ua.achievement_id, ua.unlocked_at);

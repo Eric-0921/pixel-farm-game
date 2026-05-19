@@ -1,4 +1,4 @@
-const { getDatabase, db, saveDatabase } = require('../database');
+const { getDatabase } = require('../database');
 
 /**
  * 获取今天的日期字符串（YYYY-MM-DD）
@@ -16,10 +16,11 @@ function getToday() {
  * @returns {boolean} - 是否可以执行
  */
 function canPerformAction(userId, targetId, actionType, maxCount) {
+  const db = getDatabase();
   const today = getToday();
-  const record = db.daily_actions.find(
-    a => a.user_id === userId && a.target_user_id === targetId && a.action_type === actionType && a.action_date === today
-  );
+  const record = db.prepare(
+    'SELECT * FROM daily_actions WHERE user_id = ? AND target_user_id = ? AND action_type = ? AND action_date = ?'
+  ).get(userId, targetId, actionType, today);
   if (!record) {
     return true;
   }
@@ -33,21 +34,19 @@ function canPerformAction(userId, targetId, actionType, maxCount) {
  * @param {string} actionType - 操作类型
  */
 function recordAction(userId, targetId, actionType) {
+  const db = getDatabase();
   const today = getToday();
-  const existing = db.daily_actions.find(
-    a => a.user_id === userId && a.target_user_id === targetId && a.action_type === actionType && a.action_date === today
-  );
+  const existing = db.prepare(
+    'SELECT * FROM daily_actions WHERE user_id = ? AND target_user_id = ? AND action_type = ? AND action_date = ?'
+  ).get(userId, targetId, actionType, today);
 
   if (existing) {
-    existing.count += 1;
+    db.prepare('UPDATE daily_actions SET count = count + 1 WHERE id = ?').run(existing.id);
   } else {
-    const db2 = getDatabase();
-    db2.prepare("INSERT INTO daily_actions (user_id, target_user_id, action_type, action_date, count) VALUES (?, ?, ?, ?, 1)")
-      .run(userId, targetId, actionType, today);
-    return;
+    db.prepare(
+      'INSERT INTO daily_actions (user_id, target_user_id, action_type, action_date, count) VALUES (?, ?, ?, ?, 1)'
+    ).run(userId, targetId, actionType, today);
   }
-
-  saveDatabase();
 }
 
 module.exports = {

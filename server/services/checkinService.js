@@ -1,4 +1,4 @@
-const { db, saveDatabase } = require('../database');
+const { getDatabase } = require('../database');
 
 /**
  * 获取当前日期字符串（本地时间 YYYY-MM-DD）
@@ -47,13 +47,12 @@ function calculateReward(consecutiveDays) {
  * @returns {Object} — { checkedInToday: boolean, consecutiveDays: number, todayReward: number }
  */
 function getCheckinStatus(userId) {
+  const db = getDatabase();
   const today = getTodayString();
-  const todayCheckin = db.checkins.find(c => c.user_id === userId && c.checkin_date === today);
+  const todayCheckin = db.prepare('SELECT * FROM checkins WHERE user_id = ? AND checkin_date = ?').get(userId, today);
 
   let consecutiveDays = 0;
-  const latestCheckin = db.checkins
-    .filter(c => c.user_id === userId)
-    .sort((a, b) => b.checkin_date.localeCompare(a.checkin_date))[0];
+  const latestCheckin = db.prepare('SELECT * FROM checkins WHERE user_id = ? ORDER BY checkin_date DESC LIMIT 1').get(userId);
 
   if (latestCheckin) {
     if (latestCheckin.checkin_date === today) {
@@ -78,6 +77,7 @@ function getCheckinStatus(userId) {
  * @returns {Array} — 最近7天的签到状态
  */
 function getRecentCheckins(userId) {
+  const db = getDatabase();
   const result = [];
   const today = new Date();
 
@@ -85,7 +85,7 @@ function getRecentCheckins(userId) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const checkin = db.checkins.find(c => c.user_id === userId && c.checkin_date === dateStr);
+    const checkin = db.prepare('SELECT * FROM checkins WHERE user_id = ? AND checkin_date = ?').get(userId, dateStr);
     result.push({
       date: dateStr,
       checkedIn: !!checkin,
@@ -102,14 +102,15 @@ function getRecentCheckins(userId) {
  * @returns {Object} — { success: boolean, reward: number, consecutiveDays: number, message: string, extraReward?: string }
  */
 function doCheckin(userId) {
+  const db = getDatabase();
   const today = getTodayString();
-  const existing = db.checkins.find(c => c.user_id === userId && c.checkin_date === today);
+  const existing = db.prepare('SELECT * FROM checkins WHERE user_id = ? AND checkin_date = ?').get(userId, today);
   if (existing) {
     return { success: false, reward: 0, consecutiveDays: existing.consecutive_days, message: '今日已签到' };
   }
 
   const yesterday = getYesterdayString();
-  const yesterdayCheckin = db.checkins.find(c => c.user_id === userId && c.checkin_date === yesterday);
+  const yesterdayCheckin = db.prepare('SELECT * FROM checkins WHERE user_id = ? AND checkin_date = ?').get(userId, yesterday);
 
   let consecutiveDays = 1;
   if (yesterdayCheckin) {
@@ -119,42 +120,27 @@ function doCheckin(userId) {
   const reward = calculateReward(consecutiveDays);
 
   // 创建签到记录
-  const checkinId = db._seq.checkins || 1;
-  db._seq.checkins = checkinId + 1;
-  db.checkins.push({
-    id: checkinId,
-    user_id: userId,
-    checkin_date: today,
-    consecutive_days: consecutiveDays,
-    reward: reward,
-    created_at: new Date().toISOString()
-  });
+  db.prepare('INSERT INTO checkins (user_id, checkin_date, consecutive_days, reward) VALUES (?, ?, ?, ?)')
+    .run(userId, today, consecutiveDays, reward);
 
   // 增加用户金币
-  const user = db.users.find(u => u.id === userId);
+  db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').run(reward, userId);
+
+  // 更新最大金币统计
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (user) {
-    user.coins += reward;
-    // 更新最大金币统计
-    const maxCoinsStat = db.user_stats.find(s => s.user_id === userId && s.stat_key === 'max_coins');
+    const maxCoinsStat = db.prepare("SELECT * FROM user_stats WHERE user_id = ? AND stat_key = 'max_coins'").get(userId);
+    const now = new Date().toISOString();
     if (maxCoinsStat) {
       if (user.coins > maxCoinsStat.stat_value) {
-        maxCoinsStat.stat_value = user.coins;
+        db.prepare('UPDATE user_stats SET stat_value = ?, updated_at = ? WHERE id = ?')
+          .run(user.coins, now, maxCoinsStat.id);
       }
     } else {
-      const statId = db._seq.user_stats || 1;
-      db._seq.user_stats = statId + 1;
-      db.user_stats.push({
-        id: statId,
-        user_id: userId,
-        stat_key: 'max_coins',
-        stat_value: user.coins,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      db.prepare('INSERT INTO user_stats (user_id, stat_key, stat_value) VALUES (?, ?, ?)')
+        .run(userId, 'max_coins', user.coins);
     }
   }
-
-  saveDatabase();
 
   // 7天额外奖励：随机种子
   let extraReward = null;

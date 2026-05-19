@@ -1,13 +1,13 @@
-const { getDatabase, db } = require('../database');
+const { getDatabase } = require('../database');
 const achievementService = require('./achievementService');
 
 /**
  * 获取好友列表（预留扩展）
  */
 function getFriends(userId) {
-  const db2 = getDatabase();
-  
-  const friends = db2.prepare(`
+  const db = getDatabase();
+
+  const friends = db.prepare(`
     SELECT 
       u.id,
       u.username,
@@ -18,7 +18,7 @@ function getFriends(userId) {
     JOIN users u ON f.friend_id = u.id
     WHERE f.user_id = ? AND f.status = 'accepted'
   `).all(userId);
-  
+
   return friends;
 }
 
@@ -26,31 +26,31 @@ function getFriends(userId) {
  * 发送好友请求（预留扩展）
  */
 function sendFriendRequest(userId, friendId) {
-  const db2 = getDatabase();
-  
+  const db = getDatabase();
+
   if (userId === friendId) {
     throw new Error('不能添加自己为好友');
   }
-  
+
   // 检查正向关系
-  const existing = db2.prepare('SELECT * FROM friends WHERE user_id = ? AND friend_id = ?').get(userId, friendId);
+  const existing = db.prepare('SELECT * FROM friends WHERE user_id = ? AND friend_id = ?').get(userId, friendId);
   if (existing) {
     if (existing.status === 'accepted') {
       throw new Error('该用户已是您的好友');
     }
     throw new Error('好友请求已存在');
   }
-  
+
   // 检查对方是否已发送请求给自己
-  const reverse = db2.prepare('SELECT * FROM friends WHERE user_id = ? AND friend_id = ?').get(friendId, userId);
+  const reverse = db.prepare('SELECT * FROM friends WHERE user_id = ? AND friend_id = ?').get(friendId, userId);
   if (reverse) {
     if (reverse.status === 'pending') {
       throw new Error('对方已向您发送好友请求，请先处理');
     }
     throw new Error('该用户已是您的好友');
   }
-  
-  db2.prepare('INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, ?)')
+
+  db.prepare('INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, ?)')
     .run(userId, friendId, 'pending');
 }
 
@@ -58,27 +58,27 @@ function sendFriendRequest(userId, friendId) {
  * 接受好友请求（预留扩展）
  */
 function acceptFriendRequest(userId, friendId) {
-  const db2 = getDatabase();
-  
-  const request = db2.prepare(`
+  const db = getDatabase();
+
+  const request = db.prepare(`
     SELECT * FROM friends 
     WHERE user_id = ? AND friend_id = ? AND status = 'pending'
   `).get(friendId, userId);
-  
+
   if (!request) {
     throw new Error('好友请求不存在');
   }
-  
-  db2.prepare("UPDATE friends SET status = 'accepted' WHERE id = ?").run(request.id);
+
+  db.prepare("UPDATE friends SET status = 'accepted' WHERE id = ?").run(request.id);
 
   // 创建双向关系记录
-  db2.prepare('INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, ?)')
+  db.prepare('INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, ?)')
     .run(userId, friendId, 'accepted');
 
   // 更新双方好友数统计
   try {
-    const userFriendCount = db.friends.filter(f => f.user_id === userId && f.status === 'accepted').length + 1;
-    const friendFriendCount = db.friends.filter(f => f.user_id === friendId && f.status === 'accepted').length + 1;
+    const userFriendCount = db.prepare("SELECT COUNT(*) as count FROM friends WHERE user_id = ? AND status = 'accepted'").get(userId).count;
+    const friendFriendCount = db.prepare("SELECT COUNT(*) as count FROM friends WHERE user_id = ? AND status = 'accepted'").get(friendId).count;
     achievementService.setStat(userId, 'friend_count', userFriendCount);
     achievementService.setStat(friendId, 'friend_count', friendFriendCount);
   } catch (e) {
@@ -98,17 +98,16 @@ function searchUsers(userId, query) {
   }
 
   const q = query.trim().toLowerCase();
+  const db = getDatabase();
 
   // 获取当前用户的好友ID列表
-  const friendIds = new Set();
-  const userFriends = db.friends.filter(f => f.user_id === userId && (f.status === 'accepted' || f.status === 'pending'));
-  for (const f of userFriends) {
-    friendIds.add(f.friend_id);
-  }
+  const friendRows = db.prepare("SELECT friend_id FROM friends WHERE user_id = ? AND status IN ('accepted', 'pending')").all(userId);
+  const friendIds = new Set(friendRows.map(f => f.friend_id));
 
   // 搜索用户（排除自己和好友）
-  return db.users
-    .filter(u => u.id !== userId && !friendIds.has(u.id) && u.username.toLowerCase().includes(q))
+  const users = db.prepare("SELECT id, username, display_name FROM users WHERE username LIKE ?").all('%' + q + '%');
+  return users
+    .filter(u => u.id !== userId && !friendIds.has(u.id))
     .map(u => ({
       id: u.id,
       username: u.username,
@@ -122,16 +121,16 @@ function searchUsers(userId, query) {
  * @param {number} friendId - 请求发送者ID
  */
 function rejectFriendRequest(userId, friendId) {
+  const db = getDatabase();
+
   // friendId 是请求发送者，查找 (friendId, userId, 'pending')
-  const request = db.friends.find(f => f.user_id === friendId && f.friend_id === userId && f.status === 'pending');
+  const request = db.prepare("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'pending'").get(friendId, userId);
   if (!request) {
     throw new Error('好友请求不存在');
   }
 
   // 删除该请求
-  db.friends = db.friends.filter(f => f.id !== request.id);
-  const { saveDatabase } = require('../database');
-  saveDatabase();
+  db.prepare('DELETE FROM friends WHERE id = ?').run(request.id);
 }
 
 /**
@@ -140,19 +139,17 @@ function rejectFriendRequest(userId, friendId) {
  * @param {number} friendId - 好友ID
  */
 function removeFriend(userId, friendId) {
+  const db = getDatabase();
+
   // 检查是否为好友
-  const friendship = db.friends.find(f => f.user_id === userId && f.friend_id === friendId && f.status === 'accepted');
+  const friendship = db.prepare("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'accepted'").get(userId, friendId);
   if (!friendship) {
     throw new Error('该用户不是您的好友');
   }
 
   // 双向删除
-  db.friends = db.friends.filter(f =>
-    !(f.user_id === userId && f.friend_id === friendId) &&
-    !(f.user_id === friendId && f.friend_id === userId)
-  );
-  const { saveDatabase } = require('../database');
-  saveDatabase();
+  db.prepare('DELETE FROM friends WHERE user_id = ? AND friend_id = ?').run(userId, friendId);
+  db.prepare('DELETE FROM friends WHERE user_id = ? AND friend_id = ?').run(friendId, userId);
 }
 
 /**
@@ -161,9 +158,11 @@ function removeFriend(userId, friendId) {
  * @returns {Array} - 待处理请求列表，包含请求者信息
  */
 function getPendingRequests(userId) {
-  const requests = db.friends.filter(f => f.friend_id === userId && f.status === 'pending');
+  const db = getDatabase();
+
+  const requests = db.prepare("SELECT * FROM friends WHERE friend_id = ? AND status = 'pending'").all(userId);
   return requests.map(r => {
-    const user = db.users.find(u => u.id === r.user_id);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(r.user_id);
     return {
       id: r.id,
       user_id: r.user_id,
@@ -181,8 +180,10 @@ function getPendingRequests(userId) {
  * @param {string} content - 留言内容（最多200字）
  */
 function sendMessage(senderId, receiverId, content) {
+  const db = getDatabase();
+
   // 检查是否为好友
-  const friendship = db.friends.find(f => f.user_id === senderId && f.friend_id === receiverId && f.status === 'accepted');
+  const friendship = db.prepare("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'accepted'").get(senderId, receiverId);
   if (!friendship) {
     throw new Error('只能给好友发送留言');
   }
@@ -196,8 +197,7 @@ function sendMessage(senderId, receiverId, content) {
     throw new Error('留言内容最多200字');
   }
 
-  const db2 = getDatabase();
-  db2.prepare("INSERT INTO messages (sender_id, receiver_id, content, created_at) VALUES (?, ?, ?, current_timestamp)")
+  db.prepare("INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)")
     .run(senderId, receiverId, trimmed);
 }
 
@@ -208,26 +208,28 @@ function sendMessage(senderId, receiverId, content) {
  * @returns {Array} - 留言列表
  */
 function getMessages(userId, friendId) {
+  const db = getDatabase();
+
   // 检查是否为好友
-  const friendship = db.friends.find(f => f.user_id === userId && f.friend_id === friendId && f.status === 'accepted');
+  const friendship = db.prepare("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'accepted'").get(userId, friendId);
   if (!friendship) {
     throw new Error('只能查看好友的留言');
   }
 
-  return db.messages
-    .filter(m =>
-      (m.sender_id === userId && m.receiver_id === friendId) ||
-      (m.sender_id === friendId && m.receiver_id === userId)
-    )
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-    .map(m => ({
-      id: m.id,
-      sender_id: m.sender_id,
-      receiver_id: m.receiver_id,
-      content: m.content,
-      created_at: m.created_at,
-      read_at: m.read_at
-    }));
+  const messages = db.prepare(`
+    SELECT * FROM messages 
+    WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+    ORDER BY created_at ASC
+  `).all(userId, friendId, friendId, userId);
+
+  return messages.map(m => ({
+    id: m.id,
+    sender_id: m.sender_id,
+    receiver_id: m.receiver_id,
+    content: m.content,
+    created_at: m.created_at,
+    read_at: m.read_at
+  }));
 }
 
 /**
@@ -238,24 +240,24 @@ function getMessages(userId, friendId) {
  * @param {number} quantity - 数量（默认1）
  */
 function sendGift(senderId, receiverId, cropTypeId, quantity) {
-  const db2 = getDatabase();
+  const db = getDatabase();
 
   // 检查是否为好友
-  const friendship = db2.prepare("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'accepted'").get(senderId, receiverId);
+  const friendship = db.prepare("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'accepted'").get(senderId, receiverId);
   if (!friendship) {
     throw new Error('只能给好友赠送种子');
   }
 
   // 验证作物类型
-  const cropType = db2.prepare('SELECT * FROM crop_types WHERE id = ?').get(cropTypeId);
+  const cropType = db.prepare('SELECT * FROM crop_types WHERE id = ?').get(cropTypeId);
   if (!cropType) {
     throw new Error('作物类型不存在');
   }
 
   const qty = quantity && quantity > 0 ? quantity : 1;
 
-  db2.prepare("INSERT INTO gifts (sender_id, receiver_id, crop_type_id, quantity, status, created_at) VALUES (?, ?, ?, ?, ?, current_timestamp)")
-    .run(senderId, receiverId, cropTypeId, qty, 'pending');
+  db.prepare("INSERT INTO gifts (sender_id, receiver_id, crop_type_id, quantity, status) VALUES (?, ?, ?, ?, 'pending')")
+    .run(senderId, receiverId, cropTypeId, qty);
 }
 
 module.exports = {

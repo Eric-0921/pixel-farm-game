@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { getDatabase, db } = require('../database');
+const { getDatabase } = require('../database');
 const dailyActionService = require('../services/dailyActionService');
 
 const router = express.Router();
@@ -27,8 +27,8 @@ function validatePositiveInteger(value, fieldName) {
  */
 router.get('/', (req, res) => {
   try {
-    const db2 = getDatabase();
-    const crops = db2.prepare('SELECT * FROM crop_types ORDER BY buy_price ASC').all();
+    const db = getDatabase();
+    const crops = db.prepare('SELECT * FROM crop_types ORDER BY buy_price ASC').all();
     res.json({ success: true, data: crops });
   } catch (err) {
     console.error('获取作物类型失败:', err);
@@ -63,8 +63,10 @@ router.post('/water-friend/:friendId/:plotId', authenticateToken, (req, res) => 
       return res.status(400).json({ success: false, message: '不能给自己浇水' });
     }
 
+    const db = getDatabase();
+
     // 检查是否为好友
-    const friendship = db.friends.find(f => f.user_id === userId && f.friend_id === friendId && f.status === 'accepted');
+    const friendship = db.prepare("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'accepted'").get(userId, friendId);
     if (!friendship) {
       return res.status(403).json({ success: false, message: '只能给好友浇水' });
     }
@@ -76,12 +78,12 @@ router.post('/water-friend/:friendId/:plotId', authenticateToken, (req, res) => 
     }
 
     // 验证地块属于好友
-    const plot = db.plots.find(p => p.id === plotId);
+    const plot = db.prepare('SELECT * FROM plots WHERE id = ?').get(plotId);
     if (!plot) {
       return res.status(404).json({ success: false, message: '地块不存在' });
     }
 
-    const farm = db.farms.find(f => f.id === plot.farm_id);
+    const farm = db.prepare('SELECT * FROM farms WHERE id = ?').get(plot.farm_id);
     if (!farm || farm.user_id !== friendId) {
       return res.status(403).json({ success: false, message: '该地块不属于该好友' });
     }
@@ -91,33 +93,22 @@ router.post('/water-friend/:friendId/:plotId', authenticateToken, (req, res) => 
       return res.status(400).json({ success: false, message: '该地块没有作物' });
     }
 
-    const planting = db.plantings.find(pl => pl.plot_id === plotId && !pl.harvested_at);
+    const planting = db.prepare('SELECT * FROM plantings WHERE plot_id = ? AND harvested_at IS NULL').get(plotId);
     if (!planting) {
       return res.status(400).json({ success: false, message: '该地块没有作物' });
     }
 
     // 更新浇水时间
     const now = new Date().toISOString();
-    planting.watered_at = now;
+    db.prepare('UPDATE plantings SET watered_at = ? WHERE id = ?').run(now, planting.id);
 
     // 双方获得少量经验
     const EXP_REWARD = 5;
-    const currentUser = db.users.find(u => u.id === userId);
-    const friendUser = db.users.find(u => u.id === friendId);
-
-    if (currentUser) {
-      currentUser.experience = (currentUser.experience || 0) + EXP_REWARD;
-    }
-    if (friendUser) {
-      friendUser.experience = (friendUser.experience || 0) + EXP_REWARD;
-    }
+    db.prepare('UPDATE users SET experience = experience + ? WHERE id = ?').run(EXP_REWARD, userId);
+    db.prepare('UPDATE users SET experience = experience + ? WHERE id = ?').run(EXP_REWARD, friendId);
 
     // 记录每日操作
     dailyActionService.recordAction(userId, friendId, 'water_friend');
-
-    // 保存数据库
-    const { saveDatabase } = require('../database');
-    saveDatabase();
 
     res.json({
       success: true,
