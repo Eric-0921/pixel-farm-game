@@ -23,6 +23,7 @@ class UIManager {
       btnSeeds: document.getElementById('btn-seeds'),
       btnRefresh: document.getElementById('btn-refresh'),
       btnLogout: document.getElementById('btn-logout'),
+      btnPushToggle: document.getElementById('btn-push-toggle'),
       btnNotifications: document.getElementById('btn-notifications'),
       btnFriends: document.getElementById('btn-friends'),
       notifBadge: document.getElementById('notif-badge'),
@@ -70,6 +71,7 @@ class UIManager {
     this.pendingRequestsData = [];
     this.initListeners();
     this.initKeyboard();
+    this.initPushStatus();
   }
 
   initListeners() {
@@ -116,6 +118,7 @@ class UIManager {
     this.elements.btnLogout.addEventListener('click', () => this.handleLogout());
     this.elements.btnNotifications.addEventListener('click', () => this.showNotifModal());
     this.elements.btnFriends.addEventListener('click', () => this.showFriendModal());
+    this.elements.btnPushToggle.addEventListener('click', () => this.handlePushToggle());
 
     // 好友搜索
     this.elements.friendSearchBtn.addEventListener('click', () => this.handleSearchUsers());
@@ -947,6 +950,80 @@ class UIManager {
       }
     } catch (err) {
       this.showToast('赠送种子失败: ' + err.message, 'error');
+    }
+  }
+
+  /* ==================== 推送通知 ==================== */
+
+  async initPushStatus() {
+    try {
+      const status = await getPushStatus();
+      this.pushStatus = status;
+      this.updatePushToggleUI();
+    } catch (err) {
+      console.error('初始化推送状态失败:', err);
+    }
+  }
+
+  updatePushToggleUI() {
+    const btn = this.elements.btnPushToggle;
+    if (!btn) return;
+
+    if (this.pushStatus === 'unsupported') {
+      btn.textContent = '🔕 不支持';
+      btn.disabled = true;
+      btn.classList.add('disabled');
+      btn.title = '当前浏览器不支持推送通知';
+    } else if (this.pushStatus === 'denied') {
+      btn.textContent = '🔕 已拒绝';
+      btn.disabled = true;
+      btn.classList.add('disabled');
+      btn.title = '通知权限已被拒绝，请在浏览器设置中开启';
+    } else if (this.pushStatus === 'granted') {
+      btn.textContent = '🔔 已开启';
+      btn.disabled = false;
+      btn.classList.remove('disabled');
+      btn.classList.add('active');
+      btn.title = '点击关闭推送通知';
+    } else {
+      btn.textContent = '🔔 推送通知';
+      btn.disabled = false;
+      btn.classList.remove('disabled', 'active');
+      btn.title = '点击开启推送通知';
+    }
+  }
+
+  async handlePushToggle() {
+    if (this.pushStatus === 'unsupported' || this.pushStatus === 'denied') {
+      return;
+    }
+
+    try {
+      if (this.pushStatus === 'granted') {
+        // 取消订阅
+        await unsubscribeFromPush();
+        this.pushStatus = 'default';
+        this.showToast('已关闭推送通知', 'info');
+      } else {
+        // 请求权限并订阅
+        this.elements.btnPushToggle.textContent = '⏳ 请求中...';
+        this.elements.btnPushToggle.disabled = true;
+
+        const permissionGranted = await requestNotificationPermission();
+        if (!permissionGranted) {
+          this.pushStatus = 'denied';
+          this.showToast('通知权限被拒绝', 'error');
+        } else {
+          await subscribeToPush();
+          this.pushStatus = 'granted';
+          this.showToast('推送通知已开启', 'success');
+        }
+      }
+    } catch (err) {
+      console.error('切换推送通知失败:', err);
+      this.showToast('操作失败: ' + (err.message || '未知错误'), 'error');
+    } finally {
+      this.updatePushToggleUI();
     }
   }
 

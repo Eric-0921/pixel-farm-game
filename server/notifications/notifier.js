@@ -45,6 +45,23 @@ class Notifier {
     
     return results;
   }
+  
+  /**
+   * 作物成熟通知
+   * @param {number} userId - 用户ID
+   * @param {string} cropName - 作物名称
+   * @param {Object} data - 额外数据
+   */
+  async notifyCropMature(userId, cropName, data = {}) {
+    const notification = {
+      type: 'crop_mature',
+      title: '作物成熟了！',
+      content: `你的 ${cropName} 已经成熟，快去收获吧！`,
+      body: `您的 ${cropName} 已成熟！快来收获吧 🌾`,
+      data
+    };
+    return this.send(userId, notification, ['in_app']);
+  }
 }
 
 // 单例实例

@@ -49,8 +49,11 @@
           <span class="seed-label">未选择种子</span>
         </div>
         <button id="btn-seeds" class="pixel-btn small" title="选择种子" aria-label="选择种子">🌱 种子</button>
+        <button id="btn-push-toggle" class="pixel-btn small" title="推送通知" aria-label="推送通知开关">
+          🔔 推送通知
+        </button>
         <button id="btn-notifications" class="pixel-btn small" title="通知" aria-label="查看通知">
-          🔔 <span id="notif-badge" class="badge hidden" aria-label="未读通知数量">0</span>
+          📩 <span id="notif-badge" class="badge hidden" aria-label="未读通知数量">0</span>
         </button>
         <button id="btn-friends" class="pixel-btn small" title="好友" aria-label="好友">👥 好友</button>
         <button id="btn-refresh" class="pixel-btn small" title="刷新农场" aria-label="刷新农场">🔄</button>
@@ -209,6 +212,7 @@
   <!-- 游戏脚本 -->
   <script src="js/network.js"></script>
   <script src="js/renderer.js"></script>
+  <script src="js/push.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/game.js"></script>
 </body>

@@ -16,7 +16,8 @@ const db = {
   messages: [],
   daily_actions: [],
   gifts: [],
-  _seq: { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1 }
+  push_subscriptions: [],
+  _seq: { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1, push_subscriptions: 1 }
 };
 
 function save() {
@@ -55,6 +56,20 @@ function findAll(arr, fn) {
 function initDatabase() {
   console.log('🌱 初始化数据库...');
   const loaded = load();
+  
+  // 确保所有表存在（兼容旧数据库）
+  const requiredTables = ['users', 'farms', 'plots', 'crop_types', 'plantings', 'friends', 'notifications', 'messages', 'daily_actions', 'gifts', 'push_subscriptions'];
+  const requiredSeq = { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1, push_subscriptions: 1 };
+  
+  for (const table of requiredTables) {
+    if (!db[table]) {
+      db[table] = [];
+    }
+  }
+  if (!db._seq) db._seq = {};
+  for (const [key, val] of Object.entries(requiredSeq)) {
+    if (!db._seq[key]) db._seq[key] = val;
+  }
   
   if (!loaded || db.crop_types.length === 0) {
     db.crop_types = [
@@ -286,6 +301,13 @@ function getDatabase() {
           }
           return { get: () => db.notifications[0] || null, all: () => db.notifications };
         }
+        // push_subscriptions
+        if (s.includes('from push_subscriptions')) {
+          if (s.includes('where user_id = ?')) {
+            return { get: (v) => findOne(db.push_subscriptions, r => r.user_id === v), all: (v) => findAll(db.push_subscriptions, r => r.user_id === v) };
+          }
+          return { get: () => db.push_subscriptions[0] || null, all: () => db.push_subscriptions };
+        }
       }
       
       // ---- INSERT ----
@@ -321,6 +343,79 @@ function getDatabase() {
             db[table].push(record);
             save();
             return { lastInsertRowid: record.id, changes: 1 };
+          }
+        };
+      }
+      
+      // ---- DELETE ----
+      if (s.trim().startsWith('delete')) {
+        const m = sql.match(/delete from (\w+)/i);
+        const table = m ? m[1].toLowerCase() : 'unknown';
+        return {
+          run(...params) {
+            if (!db[table]) return { changes: 0 };
+            
+            // 解析 WHERE 条件
+            const whereMatch = sql.match(/where\s+(.+)/i);
+            if (!whereMatch) {
+              const count = db[table].length;
+              db[table] = [];
+              save();
+              return { changes: count };
+            }
+            
+            const whereClause = whereMatch[1];
+            const whereParts = whereClause.split(/\s+and\s+/i).map(w => w.trim());
+            const conditions = [];
+            let paramIdx = 0;
+            
+            for (const wp of whereParts) {
+              // col = ?
+              const eqMatch = wp.match(/^(\w+)\s*=\s*\?$/);
+              if (eqMatch) {
+                conditions.push({ col: eqMatch[1], type: 'eq', value: params[paramIdx++] });
+                continue;
+              }
+              // col >= ? / col <= ? / col > ? / col < ?
+              const cmpMatch = wp.match(/^(\w+)\s*([>=<]+)\s*\?$/);
+              if (cmpMatch) {
+                conditions.push({ col: cmpMatch[1], op: cmpMatch[2], type: 'cmp', value: params[paramIdx++] });
+                continue;
+              }
+              // col IS NULL
+              const nullMatch = wp.match(/^(\w+)\s+is\s+null$/i);
+              if (nullMatch) {
+                conditions.push({ col: nullMatch[1], type: 'null' });
+                continue;
+              }
+            }
+            
+            // 匹配记录
+            let records = [...db[table]];
+            for (const cond of conditions) {
+              records = records.filter(r => {
+                if (cond.type === 'eq') return r[cond.col] === cond.value;
+                if (cond.type === 'cmp') {
+                  if (cond.op === '>=') return r[cond.col] >= cond.value;
+                  if (cond.op === '<=') return r[cond.col] <= cond.value;
+                  if (cond.op === '>') return r[cond.col] > cond.value;
+                  if (cond.op === '<') return r[cond.col] < cond.value;
+                }
+                if (cond.type === 'null') return r[cond.col] == null;
+                return true;
+              });
+            }
+            
+            // 获取要删除的索引
+            const toDelete = new Set();
+            for (const record of records) {
+              const idx = db[table].indexOf(record);
+              if (idx >= 0) toDelete.add(idx);
+            }
+            
+            db[table] = db[table].filter((_, i) => !toDelete.has(i));
+            if (toDelete.size > 0) save();
+            return { changes: toDelete.size };
           }
         };
       }

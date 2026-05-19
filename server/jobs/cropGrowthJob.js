@@ -1,8 +1,7 @@
 const cron = require('node-cron');
 const { getDatabase } = require('../database');
 const config = require('../config');
-const { sendToUser } = require('../websocket');
-const notificationService = require('../services/notificationService');
+const notifier = require('../notifications/notifier');
 
 /**
  * 启动作物生长检查定时任务
@@ -72,22 +71,10 @@ async function checkCropGrowth() {
           // 标记为已通知
           db.prepare('UPDATE plantings SET is_notified = 1 WHERE id = ?').run(planting.id);
           
-          // 发送应用内通知
-          await notificationService.createNotification(
-            planting.user_id,
-            'crop_mature',
-            '作物成熟了！',
-            `你的 ${planting.crop_name} 已经成熟，快去收获吧！`,
-            'in_app',
-            { plot_id: planting.plot_id, crop_type_id: planting.crop_type_id }
-          );
-          
-          // 如果用户在线，实时推送
-          sendToUser(planting.user_id, {
-            type: 'crop_mature',
-            title: '作物成熟了！',
-            message: `你的 ${planting.crop_name} 已经成熟，快去收获吧！`,
-            data: { plot_id: planting.plot_id }
+          // 通过通知器发送（包含 in_app + push）
+          await notifier.notifyCropMature(planting.user_id, planting.crop_name, {
+            plot_id: planting.plot_id,
+            crop_type_id: planting.crop_type_id
           });
           
           console.log(`🌾 用户 ${planting.user_id} 的 ${planting.crop_name} 已成熟`);

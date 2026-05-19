@@ -254,6 +254,27 @@ html, body {
   font-weight: bold;
 }
 
+/* 推送通知开关 */
+#btn-push-toggle {
+  min-width: 80px;
+}
+
+#btn-push-toggle.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#btn-push-toggle.active {
+  background-color: var(--pixel-success);
+  color: white;
+  text-shadow: none;
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.3);
+}
+
+#btn-push-toggle.active:hover {
+  background-color: #2ecc71;
+}
+
 /* 通知角标 */
 .badge {
   display: inline-block;

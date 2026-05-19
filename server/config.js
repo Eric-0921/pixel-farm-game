@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * 全局配置文件
@@ -29,6 +31,51 @@ function getJwtSecret() {
 }
 
 const jwtSecret = getJwtSecret();
+
+// VAPID 密钥对：自动生成或读取已有
+function getVapidKeys() {
+  const vapidFile = path.resolve('./database/.vapid_keys.json');
+  
+  try {
+    if (fs.existsSync(vapidFile)) {
+      const keys = JSON.parse(fs.readFileSync(vapidFile, 'utf8'));
+      if (keys.publicKey && keys.privateKey) {
+        return keys;
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ 读取 VAPID 密钥失败，将重新生成');
+  }
+  
+  try {
+    const webpush = require('web-push');
+    const vapidKeys = webpush.generateVAPIDKeys();
+    fs.mkdirSync(path.dirname(vapidFile), { recursive: true });
+    fs.writeFileSync(vapidFile, JSON.stringify(vapidKeys, null, 2));
+    console.log('🔐 已生成新的 VAPID 密钥对');
+    return vapidKeys;
+  } catch (e) {
+    console.error('❌ 生成 VAPID 密钥失败:', e.message);
+    return { publicKey: '', privateKey: '' };
+  }
+}
+
+const vapidKeys = getVapidKeys();
+
+// 配置 web-push
+if (vapidKeys.publicKey && vapidKeys.privateKey) {
+  try {
+    const webpush = require('web-push');
+    webpush.setVapidDetails(
+      'mailto:admin@pixelfarm.game',
+      vapidKeys.publicKey,
+      vapidKeys.privateKey
+    );
+    console.log('🔐 VAPID 密钥已配置');
+  } catch (e) {
+    console.error('❌ 配置 VAPID 失败:', e.message);
+  }
+}
 
 module.exports = {
   // 服务器配置
@@ -62,6 +109,9 @@ module.exports = {
     witherAfterHarvestWindow: 86400
   },
   
+  // VAPID 公钥
+  vapidPublicKey: vapidKeys.publicKey,
+  
   // WebSocket 配置
   ws: {
     pingInterval: 30000
@@ -72,7 +122,7 @@ module.exports = {
     // 检查间隔（秒）
     checkInterval: 60,
     
-    // 默认启用渠道
+    // 默认启用渠道（in_app 已集成 Push 发送）
     defaultChannels: ['in_app']
   }
 };

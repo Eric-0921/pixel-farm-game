@@ -10,7 +10,7 @@ const inAppProvider = require('./notifications/inAppProvider');
 // 初始化数据库
 initDatabase();
 
-// 注册应用内通知渠道
+// 注册应用内通知渠道（已集成 Push 发送）
 notifier.registerProvider('in_app', inAppProvider);
 
 // 创建 HTTP 服务器
