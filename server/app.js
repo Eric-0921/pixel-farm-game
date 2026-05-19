@@ -53,6 +53,8 @@ app.use('/api/farm', require('./routes/farm'));
 app.use('/api/crops', require('./routes/crops'));
 app.use('/api/friends', require('./routes/friends'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/checkin', require('./routes/checkin'));
+app.use('/api/achievements', require('./routes/achievements'));
 
 // 健康检查
 app.get('/api/health', (req, res) => {

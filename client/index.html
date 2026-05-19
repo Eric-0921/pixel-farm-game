@@ -55,6 +55,8 @@
         <button id="btn-notifications" class="pixel-btn small" title="通知" aria-label="查看通知">
           📩 <span id="notif-badge" class="badge hidden" aria-label="未读通知数量">0</span>
         </button>
+        <button id="btn-checkin" class="pixel-btn small" title="每日签到" aria-label="每日签到">📅 签到</button>
+        <button id="btn-achievements" class="pixel-btn small" title="成就" aria-label="成就">🏆 成就</button>
         <button id="btn-friends" class="pixel-btn small" title="好友" aria-label="好友">👥 好友</button>
         <button id="btn-refresh" class="pixel-btn small" title="刷新农场" aria-label="刷新农场">🔄</button>
         <button id="btn-logout" class="pixel-btn small" title="退出登录" aria-label="退出登录">退出</button>
@@ -186,6 +188,46 @@
           <input type="text" id="message-input" class="pixel-input message-input" placeholder="输入留言..." maxlength="200" aria-label="留言内容">
           <button id="message-send-btn" class="pixel-btn small primary">发送</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 签到弹窗 -->
+  <div id="checkin-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="每日签到">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text" id="checkin-modal-title">📅 每日签到</h2>
+        <button class="pixel-btn close-btn" data-close="checkin" aria-label="关闭签到弹窗">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="checkin-info">
+          <p class="checkin-streak">🔥 连续签到 <span id="checkin-streak-count">0</span> 天</p>
+          <p class="checkin-status" id="checkin-status-text">今日未签到</p>
+        </div>
+        <div id="checkin-calendar" class="checkin-calendar"></div>
+        <div class="checkin-reward-info">
+          <p>今日奖励: <span id="checkin-reward">0</span> 💰</p>
+          <p class="checkin-extra-reward" id="checkin-extra-reward">连续7天额外获得随机种子！</p>
+        </div>
+        <button id="btn-do-checkin" class="pixel-btn primary checkin-btn">立即签到</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 成就弹窗 -->
+  <div id="achievement-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="成就列表">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text" id="achievement-modal-title">🏆 成就</h2>
+        <button class="pixel-btn close-btn" data-close="achievement" aria-label="关闭成就弹窗">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="achievement-summary">
+          <span id="achievement-progress">已解锁: 0 / 10</span>
+        </div>
+        <div id="achievement-list" class="achievement-list"></div>
       </div>
     </div>
   </div>

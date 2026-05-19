@@ -1,5 +1,6 @@
 const { getDatabase, createUserFarm, db } = require('../database');
 const config = require('../config');
+const achievementService = require('./achievementService');
 
 /**
  * 获取用户农场数据（包含地块和作物信息）
@@ -158,7 +159,14 @@ function plantCrop(userId, plotId, cropTypeId) {
   // 保存数据库
   const { saveDatabase } = require('../database');
   saveDatabase();
-  
+
+  // 更新种植统计
+  try {
+    achievementService.incrementStat(userId, 'plant_count', 1);
+  } catch (e) {
+    console.error('更新种植统计失败:', e);
+  }
+
   return { plotId, cropTypeId, cost: cropType.buy_price };
 }
 
@@ -194,7 +202,14 @@ function waterCrop(userId, plotId) {
   // 保存数据库
   const { saveDatabase } = require('../database');
   saveDatabase();
-  
+
+  // 更新浇水统计
+  try {
+    achievementService.incrementStat(userId, 'water_count', 1);
+  } catch (e) {
+    console.error('更新浇水统计失败:', e);
+  }
+
   return { plotId, wateredAt: now };
 }
 
@@ -260,11 +275,21 @@ function harvestCrop(userId, plotId) {
     user.coins += cropType.sell_price;
     user.experience += 10;
   }
-  
+
   // 保存数据库
   const { saveDatabase } = require('../database');
   saveDatabase();
-  
+
+  // 更新收获统计和最大金币
+  try {
+    achievementService.incrementStat(userId, 'harvest_count', 1);
+    if (user) {
+      achievementService.setStat(userId, 'max_coins', Math.max(user.coins, (achievementService.getUserStats(userId).max_coins || 0)));
+    }
+  } catch (e) {
+    console.error('更新收获统计失败:', e);
+  }
+
   return {
     plotId,
     cropName: cropType.name,

@@ -1,4 +1,5 @@
 const { getDatabase, db } = require('../database');
+const achievementService = require('./achievementService');
 
 /**
  * 获取好友列表（预留扩展）
@@ -69,10 +70,20 @@ function acceptFriendRequest(userId, friendId) {
   }
   
   db2.prepare("UPDATE friends SET status = 'accepted' WHERE id = ?").run(request.id);
-  
+
   // 创建双向关系记录
   db2.prepare('INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, ?)')
     .run(userId, friendId, 'accepted');
+
+  // 更新双方好友数统计
+  try {
+    const userFriendCount = db.friends.filter(f => f.user_id === userId && f.status === 'accepted').length + 1;
+    const friendFriendCount = db.friends.filter(f => f.user_id === friendId && f.status === 'accepted').length + 1;
+    achievementService.setStat(userId, 'friend_count', userFriendCount);
+    achievementService.setStat(friendId, 'friend_count', friendFriendCount);
+  } catch (e) {
+    console.error('更新好友统计失败:', e);
+  }
 }
 
 /**

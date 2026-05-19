@@ -17,7 +17,10 @@ const db = {
   daily_actions: [],
   gifts: [],
   push_subscriptions: [],
-  _seq: { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1, push_subscriptions: 1 }
+  checkins: [],
+  user_achievements: [],
+  user_stats: [],
+  _seq: { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1, push_subscriptions: 1, checkins: 1, user_achievements: 1, user_stats: 1 }
 };
 
 function save() {
@@ -58,8 +61,8 @@ function initDatabase() {
   const loaded = load();
   
   // 确保所有表存在（兼容旧数据库）
-  const requiredTables = ['users', 'farms', 'plots', 'crop_types', 'plantings', 'friends', 'notifications', 'messages', 'daily_actions', 'gifts', 'push_subscriptions'];
-  const requiredSeq = { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1, push_subscriptions: 1 };
+  const requiredTables = ['users', 'farms', 'plots', 'crop_types', 'plantings', 'friends', 'notifications', 'messages', 'daily_actions', 'gifts', 'push_subscriptions', 'checkins', 'user_achievements', 'user_stats'];
+  const requiredSeq = { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1, push_subscriptions: 1, checkins: 1, user_achievements: 1, user_stats: 1 };
   
   for (const table of requiredTables) {
     if (!db[table]) {

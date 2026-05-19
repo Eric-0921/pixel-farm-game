@@ -28,6 +28,7 @@ class FarmGame {
     this.touchEndHandler = null;
     this.wsCropMatureHandler = null;
     this.wsNotificationHandler = null;
+    this.wsAchievementHandler = null;
   }
 
   async init() {
@@ -52,8 +53,16 @@ class FarmGame {
         this.ui.showToast(data.notification.title, 'info');
         this.ui.showNotifBadge(1);
       };
+      this.wsAchievementHandler = (data) => {
+        if (data.achievement) {
+          this.ui.showToast(`🏆 成就解锁: ${data.achievement.name}！+${data.achievement.reward}金币`, 'success');
+          this.ui.animateCoinFly();
+          this.refreshFarm();
+        }
+      };
       network.on('crop_mature', this.wsCropMatureHandler);
       network.on('notification', this.wsNotificationHandler);
+      network.on('achievement_unlocked', this.wsAchievementHandler);
       this.wsListenersAdded = true;
     }
     
@@ -507,6 +516,7 @@ class FarmGame {
     if (this.wsListenersAdded) {
       if (this.wsCropMatureHandler) network.off('crop_mature', this.wsCropMatureHandler);
       if (this.wsNotificationHandler) network.off('notification', this.wsNotificationHandler);
+      if (this.wsAchievementHandler) network.off('achievement_unlocked', this.wsAchievementHandler);
       this.wsListenersAdded = false;
     }
     network.disconnect();

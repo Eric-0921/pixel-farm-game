@@ -25,8 +25,20 @@ class UIManager {
       btnLogout: document.getElementById('btn-logout'),
       btnPushToggle: document.getElementById('btn-push-toggle'),
       btnNotifications: document.getElementById('btn-notifications'),
+      btnCheckin: document.getElementById('btn-checkin'),
+      btnAchievements: document.getElementById('btn-achievements'),
       btnFriends: document.getElementById('btn-friends'),
       notifBadge: document.getElementById('notif-badge'),
+      checkinModal: document.getElementById('checkin-modal'),
+      checkinCalendar: document.getElementById('checkin-calendar'),
+      checkinStreakCount: document.getElementById('checkin-streak-count'),
+      checkinStatusText: document.getElementById('checkin-status-text'),
+      checkinReward: document.getElementById('checkin-reward'),
+      checkinExtraReward: document.getElementById('checkin-extra-reward'),
+      btnDoCheckin: document.getElementById('btn-do-checkin'),
+      achievementModal: document.getElementById('achievement-modal'),
+      achievementList: document.getElementById('achievement-list'),
+      achievementProgress: document.getElementById('achievement-progress'),
       toolBtns: document.querySelectorAll('.tool-btn'),
       currentHint: document.getElementById('current-hint'),
       selectedSeedDisplay: document.getElementById('selected-seed-display'),
@@ -117,6 +129,8 @@ class UIManager {
     });
     this.elements.btnLogout.addEventListener('click', () => this.handleLogout());
     this.elements.btnNotifications.addEventListener('click', () => this.showNotifModal());
+    this.elements.btnCheckin.addEventListener('click', () => this.showCheckinModal());
+    this.elements.btnAchievements.addEventListener('click', () => this.showAchievementModal());
     this.elements.btnFriends.addEventListener('click', () => this.showFriendModal());
     this.elements.btnPushToggle.addEventListener('click', () => this.handlePushToggle());
 
@@ -158,6 +172,8 @@ class UIManager {
     setupModalClose('seed-modal');
     setupModalClose('notif-modal');
     setupModalClose('friend-modal');
+    setupModalClose('checkin-modal');
+    setupModalClose('achievement-modal');
   }
 
   initKeyboard() {
@@ -351,12 +367,22 @@ class UIManager {
     this.currentGiftFriendId = null;
   }
 
+  hideCheckinModal() {
+    this.elements.checkinModal.classList.add('hidden');
+  }
+
+  hideAchievementModal() {
+    this.elements.achievementModal.classList.add('hidden');
+  }
+
   hideAllModals() {
     this.hideSeedModal();
     this.hideNotifModal();
     this.hideFriendModal();
     this.hideMessageModal();
     this.hideGiftModal();
+    this.hideCheckinModal();
+    this.hideAchievementModal();
   }
 
   renderSeedList() {
@@ -951,6 +977,197 @@ class UIManager {
     } catch (err) {
       this.showToast('赠送种子失败: ' + err.message, 'error');
     }
+  }
+
+  /* ==================== 签到系统 ==================== */
+
+  async showCheckinModal() {
+    try {
+      const result = await network.get('/api/checkin/status');
+      if (result.success) {
+        const data = result.data;
+        this.elements.checkinStreakCount.textContent = data.consecutiveDays;
+        this.elements.checkinStatusText.textContent = data.checkedInToday ? '今日已签到 ✓' : '今日未签到';
+        this.elements.checkinStatusText.className = data.checkedInToday ? 'checkin-status checked-in' : 'checkin-status';
+        this.elements.checkinReward.textContent = data.todayReward;
+        this.elements.checkinExtraReward.style.display = (data.consecutiveDays + (data.checkedInToday ? 0 : 1)) >= 7 ? 'block' : 'none';
+        this.elements.btnDoCheckin.disabled = data.checkedInToday;
+        this.elements.btnDoCheckin.textContent = data.checkedInToday ? '今日已签到' : '立即签到';
+        this.renderCheckinCalendar(data.recentCheckins || []);
+        this.elements.checkinModal.classList.remove('hidden');
+
+        // 绑定签到按钮事件（先移除旧事件避免重复）
+        const newBtn = this.elements.btnDoCheckin.cloneNode(true);
+        this.elements.btnDoCheckin.parentNode.replaceChild(newBtn, this.elements.btnDoCheckin);
+        this.elements.btnDoCheckin = newBtn;
+        newBtn.addEventListener('click', () => this.handleDoCheckin());
+      } else {
+        this.showToast('获取签到状态失败', 'error');
+      }
+    } catch (err) {
+      this.showToast('获取签到状态失败: ' + err.message, 'error');
+    }
+  }
+
+  renderCheckinCalendar(checkins) {
+    const container = this.elements.checkinCalendar;
+    container.innerHTML = '';
+    checkins.forEach(item => {
+      const dayEl = document.createElement('div');
+      dayEl.className = `checkin-day ${item.checkedIn ? 'checked' : ''} ${item.isToday ? 'today' : ''}`;
+
+      const dateLabel = document.createElement('div');
+      dateLabel.className = 'checkin-day-label';
+      const d = new Date(item.date);
+      dateLabel.textContent = `${d.getMonth() + 1}/${d.getDate()}`;
+
+      const statusIcon = document.createElement('div');
+      statusIcon.className = 'checkin-day-icon';
+      statusIcon.textContent = item.checkedIn ? '✓' : '·';
+
+      dayEl.appendChild(dateLabel);
+      dayEl.appendChild(statusIcon);
+      container.appendChild(dayEl);
+    });
+  }
+
+  async handleDoCheckin() {
+    const btn = this.elements.btnDoCheckin;
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = '签到中...';
+    try {
+      const result = await network.post('/api/checkin');
+      if (result.success) {
+        const data = result.data;
+        this.showToast(data.message, 'success');
+        if (data.extraReward) {
+          setTimeout(() => {
+            this.showToast(`额外奖励: ${data.extraReward}种子！`, 'success');
+          }, 800);
+        }
+        // 金币飞入动画
+        this.animateCoinFly();
+        await this.showCheckinModal();
+        // 刷新农场数据以更新金币显示
+        if (window.game) await window.game.refreshFarm();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('签到失败: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  animateCoinFly() {
+    const toast = this.elements.toast;
+    const coin = document.createElement('div');
+    coin.textContent = '💰';
+    coin.style.position = 'fixed';
+    coin.style.left = '50%';
+    coin.style.top = '50%';
+    coin.style.fontSize = '32px';
+    coin.style.zIndex = '3000';
+    coin.style.pointerEvents = 'none';
+    coin.style.transition = 'all 0.8s ease-out';
+    document.body.appendChild(coin);
+
+    requestAnimationFrame(() => {
+      const targetRect = this.elements.playerCoins.getBoundingClientRect();
+      coin.style.left = targetRect.left + 'px';
+      coin.style.top = targetRect.top + 'px';
+      coin.style.transform = 'scale(0.5)';
+      coin.style.opacity = '0';
+    });
+
+    setTimeout(() => {
+      coin.remove();
+    }, 900);
+  }
+
+  /* ==================== 成就系统 ==================== */
+
+  async showAchievementModal() {
+    try {
+      const result = await network.get('/api/achievements');
+      if (result.success) {
+        this.renderAchievementList(result.data);
+        this.elements.achievementModal.classList.remove('hidden');
+      } else {
+        this.showToast('获取成就列表失败', 'error');
+      }
+    } catch (err) {
+      this.showToast('获取成就列表失败: ' + err.message, 'error');
+    }
+  }
+
+  renderAchievementList(achievements) {
+    const list = this.elements.achievementList;
+    const progress = this.elements.achievementProgress;
+    list.innerHTML = '';
+
+    if (!achievements || achievements.length === 0) {
+      const emptyP = document.createElement('p');
+      emptyP.className = 'empty-text';
+      emptyP.textContent = '暂无成就数据';
+      list.appendChild(emptyP);
+      progress.textContent = '已解锁: 0 / 0';
+      return;
+    }
+
+    const unlockedCount = achievements.filter(a => a.unlocked).length;
+    progress.textContent = `已解锁: ${unlockedCount} / ${achievements.length}`;
+
+    achievements.forEach(ach => {
+      const item = document.createElement('div');
+      item.className = `achievement-item ${ach.unlocked ? 'unlocked' : 'locked'}`;
+
+      const icon = document.createElement('div');
+      icon.className = 'achievement-icon';
+      icon.textContent = ach.unlocked ? '🏆' : '🔒';
+
+      const info = document.createElement('div');
+      info.className = 'achievement-info';
+
+      const nameRow = document.createElement('div');
+      nameRow.className = 'achievement-name-row';
+      const name = document.createElement('span');
+      name.className = 'achievement-name';
+      name.textContent = ach.name;
+      const reward = document.createElement('span');
+      reward.className = 'achievement-reward';
+      reward.textContent = `+${ach.reward}💰`;
+      nameRow.appendChild(name);
+      nameRow.appendChild(reward);
+
+      const desc = document.createElement('div');
+      desc.className = 'achievement-desc';
+      desc.textContent = ach.description;
+
+      const progressBar = document.createElement('div');
+      progressBar.className = 'achievement-progress-bar';
+      const progressFill = document.createElement('div');
+      progressFill.className = 'achievement-progress-fill';
+      const pct = ach.progress.target > 0
+        ? Math.min(100, Math.round((ach.progress.current / ach.progress.target) * 100))
+        : 0;
+      progressFill.style.width = pct + '%';
+      const progressText = document.createElement('span');
+      progressText.className = 'achievement-progress-text';
+      progressText.textContent = ach.unlocked ? '已完成' : `${ach.progress.current} / ${ach.progress.target}`;
+      progressBar.appendChild(progressFill);
+      progressBar.appendChild(progressText);
+
+      info.appendChild(nameRow);
+      info.appendChild(desc);
+      info.appendChild(progressBar);
+
+      item.appendChild(icon);
+      item.appendChild(info);
+      list.appendChild(item);
+    });
   }
 
   /* ==================== 推送通知 ==================== */
