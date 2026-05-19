@@ -22,6 +22,84 @@ html, body, h1, h2, h3, h4, h5, h6, p, ul, ol, li, figure, figcaption, blockquot
   --pixel-success: #27ae60;
   --pixel-info: #3498db;
   --pixel-bg-dark: #1e3528;
+  /* 字体大小变量 */
+  --font-size-base: 13px;
+  --font-size-title: 32px;
+  --font-size-subtitle: 13px;
+  --font-size-hint: 11px;
+  --font-size-btn: 13px;
+  --font-size-small: 12px;
+  --font-size-input: 14px;
+  --font-size-loading: 16px;
+  --font-size-badge: 10px;
+}
+
+/* ==================== 大字体模式 ==================== */
+body.large-font {
+  --font-size-base: 18px;
+  --font-size-title: 38px;
+  --font-size-subtitle: 16px;
+  --font-size-hint: 14px;
+  --font-size-btn: 18px;
+  --font-size-small: 14px;
+  --font-size-input: 18px;
+  --font-size-loading: 20px;
+  --font-size-badge: 12px;
+}
+
+body.large-font .pixel-btn {
+  padding: 8px 18px;
+}
+
+body.large-font .pixel-btn.small {
+  padding: 6px 10px;
+}
+
+body.large-font .pixel-input {
+  padding: 10px 14px;
+}
+
+body.large-font .modal-content {
+  width: 480px;
+}
+
+body.large-font .message-modal-content {
+  width: 420px;
+}
+
+body.large-font .tool-btn {
+  width: 60px;
+  height: 52px;
+}
+
+body.large-font .selected-seed-display {
+  padding: 6px 12px;
+  min-width: 100px;
+}
+
+/* ==================== 高对比度模式 ==================== */
+body.high-contrast {
+  --pixel-bg: #000000;
+  --pixel-panel: #1a1a1a;
+  --pixel-panel-dark: #2a2a2a;
+  --pixel-border: #ffffff;
+  --pixel-text: #ffffff;
+  --pixel-text-shadow: #000000;
+  --pixel-accent: #ffff00;
+  --pixel-accent-hover: #ffff66;
+  --pixel-danger: #ff4444;
+  --pixel-success: #44ff44;
+  --pixel-info: #44ffff;
+  --pixel-bg-dark: #0a0a0a;
+}
+
+body.high-contrast .pixel-btn.primary {
+  background-color: var(--pixel-accent);
+  color: #000000;
+}
+
+body.high-contrast .pixel-btn.primary:hover {
+  background-color: var(--pixel-accent-hover);
 }
 
 html, body {
@@ -53,7 +131,7 @@ html, body {
 /* 像素风格按钮 */
 .pixel-btn {
   font-family: 'Courier New', 'Microsoft YaHei', monospace;
-  font-size: 13px;
+  font-size: var(--font-size-btn);
   font-weight: bold;
   padding: 6px 14px;
   background-color: var(--pixel-panel-dark);
@@ -94,7 +172,7 @@ html, body {
 
 .pixel-btn.small {
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .pixel-btn.active {
@@ -114,7 +192,7 @@ html, body {
 /* 像素风格输入框 */
 .pixel-input {
   font-family: 'Courier New', 'Microsoft YaHei', monospace;
-  font-size: 14px;
+  font-size: var(--font-size-input);
   padding: 8px 12px;
   background-color: var(--pixel-bg-dark);
   color: var(--pixel-text);
@@ -136,7 +214,7 @@ html, body {
 
 /* 像素文字 */
 .pixel-text {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: bold;
   text-shadow: 1px 1px 0 var(--pixel-text-shadow);
 }
@@ -162,14 +240,14 @@ html, body {
 }
 
 .pixel-title {
-  font-size: 32px;
+  font-size: var(--font-size-title);
   margin-bottom: 4px;
   color: var(--pixel-accent);
   text-shadow: 2px 2px 0 var(--pixel-text-shadow);
 }
 
 .pixel-subtitle {
-  font-size: 13px;
+  font-size: var(--font-size-subtitle);
   color: #8ab88a;
   margin-bottom: 20px;
   text-shadow: 1px 1px 0 var(--pixel-text-shadow);
@@ -192,7 +270,7 @@ html, body {
 
 .auth-message {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   min-height: 18px;
   font-weight: bold;
 }
@@ -231,7 +309,7 @@ html, body {
 }
 
 .user-info .pixel-text {
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .game-actions {
@@ -245,7 +323,7 @@ html, body {
   background-color: var(--pixel-bg-dark);
   border: 2px solid var(--pixel-border);
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: var(--font-size-hint);
   color: #8ab88a;
   margin-right: 4px;
   min-width: 80px;
@@ -287,7 +365,7 @@ html, body {
   display: inline-block;
   background-color: var(--pixel-danger);
   color: white;
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   font-weight: bold;
   padding: 1px 4px;
   border-radius: 8px;
@@ -335,7 +413,7 @@ html, body {
 }
 
 .loading-text {
-  font-size: 16px;
+  font-size: var(--font-size-loading);
   color: var(--pixel-accent);
   text-shadow: 1px 1px 0 var(--pixel-text-shadow);
   animation: pulse 1s ease-in-out infinite;
@@ -359,14 +437,14 @@ html, body {
 }
 
 .plot-tooltip .tooltip-title {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: bold;
   color: var(--pixel-accent);
   margin-bottom: 2px;
 }
 
 .plot-tooltip .tooltip-content {
-  font-size: 11px;
+  font-size: var(--font-size-hint);
   color: #a8c6a8;
 }
 
@@ -389,7 +467,7 @@ html, body {
 .tool-btn {
   width: 52px;
   height: 44px;
-  font-size: 18px;
+  font-size: calc(var(--font-size-base) + 5px);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -399,12 +477,12 @@ html, body {
 }
 
 .tool-btn .tool-icon {
-  font-size: 18px;
+  font-size: calc(var(--font-size-base) + 5px);
   line-height: 1;
 }
 
 .tool-btn .tool-key {
-  font-size: 9px;
+  font-size: calc(var(--font-size-hint) - 2px);
   opacity: 0.6;
   line-height: 1;
 }
@@ -420,7 +498,7 @@ html, body {
 
 .hint-text {
   color: #8ab88a;
-  font-size: 11px;
+  font-size: var(--font-size-hint);
 }
 
 /* ==================== 弹窗 ==================== */
@@ -474,7 +552,7 @@ html, body {
 }
 
 .modal-coins {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--pixel-accent);
   margin-bottom: 10px;
   text-align: right;
@@ -484,7 +562,7 @@ html, body {
   width: 28px;
   height: 28px;
   padding: 0;
-  font-size: 14px;
+  font-size: var(--font-size-input);
 }
 
 @keyframes fadeIn {
@@ -554,12 +632,12 @@ html, body {
 }
 
 .seed-name {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: bold;
 }
 
 .seed-desc {
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   color: #8ab88a;
   margin-top: 1px;
 }
@@ -570,7 +648,7 @@ html, body {
 }
 
 .seed-price {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--pixel-accent);
   font-weight: bold;
 }
@@ -580,7 +658,7 @@ html, body {
 }
 
 .seed-time {
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   color: #8ab88a;
 }
 
@@ -608,18 +686,18 @@ html, body {
 }
 
 .notif-item .notif-title {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: bold;
   margin-bottom: 2px;
 }
 
 .notif-item .notif-content {
-  font-size: 11px;
+  font-size: var(--font-size-hint);
   color: #8ab88a;
 }
 
 .notif-item .notif-time {
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   color: #6b8f7a;
   margin-top: 2px;
 }
@@ -632,14 +710,14 @@ html, body {
 }
 
 .checkin-streak {
-  font-size: 16px;
+  font-size: var(--font-size-loading);
   font-weight: bold;
   color: var(--pixel-accent);
   margin-bottom: 4px;
 }
 
 .checkin-status {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: #8ab88a;
 }
 
@@ -679,13 +757,13 @@ html, body {
 }
 
 .checkin-day-label {
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   color: #8ab88a;
   margin-bottom: 2px;
 }
 
 .checkin-day-icon {
-  font-size: 14px;
+  font-size: calc(var(--font-size-base) + 1px);
   font-weight: bold;
   color: #6b8f7a;
 }
@@ -696,13 +774,13 @@ html, body {
 
 .checkin-reward-info {
   text-align: center;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--pixel-text);
   margin-bottom: 12px;
 }
 
 .checkin-extra-reward {
-  font-size: 11px;
+  font-size: var(--font-size-hint);
   color: var(--pixel-accent);
   margin-top: 4px;
 }
@@ -710,14 +788,14 @@ html, body {
 .checkin-btn {
   width: 100%;
   padding: 10px;
-  font-size: 14px;
+  font-size: var(--font-size-input);
 }
 
 /* ==================== 成就系统 ==================== */
 
 .achievement-summary {
   text-align: center;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: bold;
   color: var(--pixel-accent);
   margin-bottom: 12px;
@@ -754,7 +832,7 @@ html, body {
 .achievement-icon {
   width: 36px;
   height: 36px;
-  font-size: 20px;
+  font-size: calc(var(--font-size-base) + 7px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -781,7 +859,7 @@ html, body {
 }
 
 .achievement-name {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: bold;
 }
 
@@ -790,13 +868,13 @@ html, body {
 }
 
 .achievement-reward {
-  font-size: 11px;
+  font-size: var(--font-size-hint);
   color: var(--pixel-accent);
   font-weight: bold;
 }
 
 .achievement-desc {
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   color: #8ab88a;
   margin-bottom: 4px;
 }
@@ -828,7 +906,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: calc(var(--font-size-badge) - 1px);
   font-weight: bold;
   color: var(--pixel-text);
   text-shadow: 1px 1px 0 var(--pixel-text-shadow);
@@ -857,7 +935,7 @@ html, body {
 .friend-search-row .search-box {
   flex: 1;
   margin-bottom: 0;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   padding: 6px 10px;
 }
 
@@ -910,7 +988,7 @@ html, body {
 .friend-avatar {
   width: 32px;
   height: 32px;
-  font-size: 20px;
+  font-size: calc(var(--font-size-base) + 7px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -927,12 +1005,12 @@ html, body {
 }
 
 .friend-name {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: bold;
 }
 
 .friend-meta {
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   color: #8ab88a;
   margin-top: 1px;
 }
@@ -948,7 +1026,7 @@ html, body {
 
 .friend-actions .pixel-btn {
   padding: 3px 6px;
-  font-size: 11px;
+  font-size: var(--font-size-hint);
 }
 
 .friend-actions .pixel-btn.danger {
@@ -1011,12 +1089,12 @@ html, body {
 }
 
 .message-content {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   word-break: break-word;
 }
 
 .message-time {
-  font-size: 10px;
+  font-size: var(--font-size-badge);
   color: #6b8f7a;
   margin-top: 4px;
   text-align: right;
@@ -1030,14 +1108,14 @@ html, body {
 .message-input-row .message-input {
   flex: 1;
   margin-bottom: 0;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   padding: 6px 10px;
 }
 
 .empty-text {
   text-align: center;
   color: #6b8f7a;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   padding: 20px;
 }
 
@@ -1091,7 +1169,7 @@ html, body {
   
   .user-info {
     gap: 10px;
-    font-size: 11px;
+    font-size: var(--font-size-hint);
   }
   
   .game-actions {
@@ -1104,7 +1182,7 @@ html, body {
   }
   
   .pixel-title {
-    font-size: 24px;
+    font-size: calc(var(--font-size-title) - 8px);
   }
   
   #game-canvas {
@@ -1134,7 +1212,7 @@ html, body {
   }
 
   .checkin-day-label {
-    font-size: 9px;
+    font-size: calc(var(--font-size-badge) - 1px);
   }
 
   .achievement-list {
@@ -1149,6 +1227,6 @@ html, body {
   }
   
   .pixel-title {
-    font-size: 20px;
+    font-size: calc(var(--font-size-title) - 12px);
   }
 }

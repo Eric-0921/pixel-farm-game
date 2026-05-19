@@ -47,6 +47,12 @@ class FarmGame {
     if (!this.wsListenersAdded) {
       this.wsCropMatureHandler = (data) => {
         this.ui.showToast(data.message, 'success');
+        if (typeof voiceManager !== 'undefined') {
+          // 尝试从消息中提取作物名称，否则直接播报消息
+          const match = data.message && data.message.match(/您的(.+?)已成熟/);
+          if (match) voiceManager.speakCropMature(match[1]);
+          else voiceManager.speak(data.message);
+        }
         this.refreshFarm();
       };
       this.wsNotificationHandler = (data) => {
@@ -293,6 +299,7 @@ class FarmGame {
       });
       if (result.success) {
         this.ui.showToast('种植成功！', 'success');
+        if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('种植');
         this.spawnParticles(plot);
         await this.refreshFarm();
       } else {
@@ -320,6 +327,7 @@ class FarmGame {
           ? '帮好友浇水成功！双方获得经验'
           : '浇水成功！生长速度提升';
         this.ui.showToast(msg, 'success');
+        if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('浇水');
         this.spawnParticles(plot);
         if (this.state.viewingFriendFarm) {
           await this.loadFriendFarm(this.state.currentFriendId);
@@ -351,6 +359,7 @@ class FarmGame {
       const result = await network.post('/api/farm/harvest', { plotId: plot.plot_id });
       if (result.success) {
         this.ui.showToast(`收获成功！获得 ${result.data.earned} 金币`, 'success');
+        if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('收获');
         this.spawnParticles(plot);
         await this.refreshFarm();
       } else {

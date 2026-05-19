@@ -24,6 +24,9 @@ class UIManager {
       btnRefresh: document.getElementById('btn-refresh'),
       btnLogout: document.getElementById('btn-logout'),
       btnPushToggle: document.getElementById('btn-push-toggle'),
+      btnFontToggle: document.getElementById('btn-font-toggle'),
+      btnContrastToggle: document.getElementById('btn-contrast-toggle'),
+      btnVoiceToggle: document.getElementById('btn-voice-toggle'),
       btnNotifications: document.getElementById('btn-notifications'),
       btnCheckin: document.getElementById('btn-checkin'),
       btnAchievements: document.getElementById('btn-achievements'),
@@ -84,6 +87,7 @@ class UIManager {
     this.initListeners();
     this.initKeyboard();
     this.initPushStatus();
+    this.initAccessibility();
   }
 
   initListeners() {
@@ -133,6 +137,9 @@ class UIManager {
     this.elements.btnAchievements.addEventListener('click', () => this.showAchievementModal());
     this.elements.btnFriends.addEventListener('click', () => this.showFriendModal());
     this.elements.btnPushToggle.addEventListener('click', () => this.handlePushToggle());
+    this.elements.btnFontToggle.addEventListener('click', () => this.toggleFontSize());
+    this.elements.btnContrastToggle.addEventListener('click', () => this.toggleHighContrast());
+    this.elements.btnVoiceToggle.addEventListener('click', () => this.toggleVoice());
 
     // 好友搜索
     this.elements.friendSearchBtn.addEventListener('click', () => this.handleSearchUsers());
@@ -1168,6 +1175,73 @@ class UIManager {
       item.appendChild(info);
       list.appendChild(item);
     });
+  }
+
+  /* ==================== 无障碍功能（老年人专属） ==================== */
+
+  initAccessibility() {
+    // 大字体
+    const isLargeFont = localStorage.getItem('farm_large_font') === 'true';
+    if (isLargeFont) document.body.classList.add('large-font');
+    // 高对比度
+    const isHighContrast = localStorage.getItem('farm_high_contrast') === 'true';
+    if (isHighContrast) document.body.classList.add('high-contrast');
+    // 语音播报
+    this.updateFontToggleUI();
+    this.updateContrastToggleUI();
+    this.updateVoiceToggleUI();
+  }
+
+  toggleFontSize() {
+    const isLarge = document.body.classList.toggle('large-font');
+    localStorage.setItem('farm_large_font', isLarge);
+    this.updateFontToggleUI();
+    this.showToast(isLarge ? '已切换大字体模式' : '已切换正常字体');
+  }
+
+  updateFontToggleUI() {
+    const btn = this.elements.btnFontToggle;
+    if (!btn) return;
+    const isLarge = document.body.classList.contains('large-font');
+    btn.textContent = isLarge ? '🔤 大字 ✓' : '🔤 大字';
+    btn.classList.toggle('active', isLarge);
+    btn.title = isLarge ? '点击关闭大字体模式' : '点击开启大字体模式';
+  }
+
+  toggleHighContrast() {
+    const isHigh = document.body.classList.toggle('high-contrast');
+    localStorage.setItem('farm_high_contrast', isHigh);
+    this.updateContrastToggleUI();
+    this.showToast(isHigh ? '已开启高对比度模式' : '已关闭高对比度模式');
+  }
+
+  updateContrastToggleUI() {
+    const btn = this.elements.btnContrastToggle;
+    if (!btn) return;
+    const isHigh = document.body.classList.contains('high-contrast');
+    btn.textContent = isHigh ? '👁 对比 ✓' : '👁 对比';
+    btn.classList.toggle('active', isHigh);
+    btn.title = isHigh ? '点击关闭高对比度模式' : '点击开启高对比度模式';
+  }
+
+  toggleVoice() {
+    if (typeof voiceManager === 'undefined') {
+      this.showToast('语音功能暂不可用', 'error');
+      return;
+    }
+    const enabled = voiceManager.toggle();
+    this.updateVoiceToggleUI();
+    this.showToast(enabled ? '语音播报已开启' : '语音播报已关闭');
+    if (enabled) voiceManager.speak('语音播报已开启');
+  }
+
+  updateVoiceToggleUI() {
+    const btn = this.elements.btnVoiceToggle;
+    if (!btn || typeof voiceManager === 'undefined') return;
+    const enabled = voiceManager.enabled;
+    btn.textContent = enabled ? '🔊 语音 ✓' : '🔊 语音';
+    btn.classList.toggle('active', enabled);
+    btn.title = enabled ? '点击关闭语音播报' : '点击开启语音播报';
   }
 
   /* ==================== 推送通知 ==================== */
