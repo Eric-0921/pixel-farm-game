@@ -8,7 +8,9 @@ class FarmGame {
       hoverPlot: null,
       selectedPlot: null,
       isLoading: false,
-      particles: []
+      particles: [],
+      viewingFriendFarm: false,
+      currentFriendId: null
     };
     this.mouseX = 0;
     this.mouseY = 0;
@@ -78,6 +80,10 @@ class FarmGame {
 
   async refreshFarm() {
     if (this.state.isLoading) return;
+    if (this.state.viewingFriendFarm && this.state.currentFriendId) {
+      await this.loadFriendFarm(this.state.currentFriendId);
+      return;
+    }
     try {
       this.state.isLoading = true;
       const result = await network.get('/api/farm');
@@ -95,12 +101,51 @@ class FarmGame {
       }
     } catch (err) {
       console.error('refresh farm error:', err);
-      // 网络错误或HTTP错误(401/403)
       if (err.message && (err.message.includes('401') || err.message.includes('403'))) {
         this.handleAuthError('登录已过期');
       }
     } finally {
       this.state.isLoading = false;
+    }
+  }
+
+  async loadMyFarm() {
+    this.state.viewingFriendFarm = false;
+    this.state.currentFriendId = null;
+    this.ui.elements.btnBackMyFarm.classList.add('hidden');
+    this.ui.elements.currentHint.textContent = '点击地块进行操作';
+    // 恢复所有工具按钮
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('hidden'));
+    await this.refreshFarm();
+    this.startAutoRefresh();
+  }
+
+  async loadFriendFarm(friendId) {
+    this.ui.showLoading(true);
+    try {
+      const result = await network.get('/api/farm/friend/' + friendId);
+      if (result.success) {
+        this.state.farmData = result.data;
+        this.state.viewingFriendFarm = true;
+        this.state.currentFriendId = friendId;
+        this.ui.elements.btnBackMyFarm.classList.remove('hidden');
+        this.ui.elements.currentHint.textContent = '👀 正在查看好友农场，选择浇水工具帮好友浇水';
+        // 隐藏种植和收获按钮
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+          const tool = btn.dataset.tool;
+          if (tool === 'plant' || tool === 'harvest') {
+            btn.classList.add('hidden');
+          }
+        });
+        this.ui.selectTool('cursor');
+        this.pauseAutoRefresh();
+      } else {
+        this.ui.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.ui.showToast('加载好友农场失败: ' + err.message, 'error');
+    } finally {
+      this.ui.showLoading(false);
     }
   }
 
@@ -219,6 +264,10 @@ class FarmGame {
   }
 
   async handlePlant(plot) {
+    if (this.state.viewingFriendFarm) {
+      this.ui.showToast('不能在好友农场种植', 'error');
+      return;
+    }
     if (plot.status !== 'empty') {
       this.ui.showToast('该地块已被占用', 'error');
       return;
@@ -251,11 +300,23 @@ class FarmGame {
       return;
     }
     try {
-      const result = await network.post('/api/farm/water', { plotId: plot.plot_id });
+      let result;
+      if (this.state.viewingFriendFarm && this.state.currentFriendId) {
+        result = await network.post(`/api/crops/water-friend/${this.state.currentFriendId}/${plot.plot_id}`);
+      } else {
+        result = await network.post('/api/farm/water', { plotId: plot.plot_id });
+      }
       if (result.success) {
-        this.ui.showToast('浇水成功！生长速度提升', 'success');
+        const msg = this.state.viewingFriendFarm
+          ? '帮好友浇水成功！双方获得经验'
+          : '浇水成功！生长速度提升';
+        this.ui.showToast(msg, 'success');
         this.spawnParticles(plot);
-        await this.refreshFarm();
+        if (this.state.viewingFriendFarm) {
+          await this.loadFriendFarm(this.state.currentFriendId);
+        } else {
+          await this.refreshFarm();
+        }
       } else {
         this.ui.showToast(result.message, 'error');
       }
@@ -265,6 +326,10 @@ class FarmGame {
   }
 
   async handleHarvest(plot) {
+    if (this.state.viewingFriendFarm) {
+      this.ui.showToast('不能在好友农场收获', 'error');
+      return;
+    }
     if (plot.status !== 'planted') {
       this.ui.showToast('该地块没有作物', 'error');
       return;

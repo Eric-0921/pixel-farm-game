@@ -39,6 +39,30 @@ class NetworkManager {
   }
 
   /**
+   * HTTP DELETE 请求
+   */
+  async delete(endpoint, auth = true) {
+    const options = {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    };
+
+    if (auth) {
+      const token = localStorage.getItem('farm_token');
+      if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, options);
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+    return response.json();
+  }
+
+  /**
    * HTTP POST 请求
    */
   async post(endpoint, data, auth = true) {

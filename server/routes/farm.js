@@ -37,22 +37,21 @@ router.get('/', (req, res) => {
 });
 
 /**
- * GET /api/farm/:userId
- * 获取指定用户的农场（社交模块预留）
+ * GET /api/farm/friend/:friendId
+ * 获取好友农场（查看模式）
  */
-router.get('/:userId', (req, res) => {
+router.get('/friend/:friendId', (req, res) => {
   try {
-    const validation = validatePositiveInteger(req.params.userId, '用户ID');
+    const validation = validatePositiveInteger(req.params.friendId, '好友ID');
     if (!validation.valid) {
       return res.status(400).json({ success: false, message: validation.message });
     }
-    const targetUserId = validation.value;
-    // TODO: 检查好友关系（社交模块）
-    const farm = farmService.getFarmByUserId(targetUserId);
+
+    const farm = farmService.getFriendFarm(req.userId, validation.value);
     res.json({ success: true, data: farm });
   } catch (err) {
-    console.error('获取农场失败:', err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('获取好友农场失败:', err);
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 

@@ -72,6 +72,12 @@ function initWebSocketServer(server) {
  * 处理客户端消息
  */
 function handleMessage(ws, data) {
+  // 非 auth 消息需要先认证
+  if (data.type !== 'auth' && !ws.userId) {
+    ws.send(JSON.stringify({ type: 'auth_failed', message: '请先进行认证' }));
+    return;
+  }
+
   switch (data.type) {
     case 'auth':
       // 客户端认证 - 使用 JWT token 验证

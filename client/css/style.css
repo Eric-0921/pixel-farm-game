@@ -596,11 +596,204 @@ html, body {
   margin-top: 2px;
 }
 
+/* ==================== 好友系统 ==================== */
+
+/* 返回我的农场按钮 */
+.back-farm-btn {
+  position: fixed;
+  top: 52px;
+  right: 12px;
+  z-index: 60;
+  background-color: var(--pixel-accent);
+  color: var(--pixel-text-shadow);
+  text-shadow: none;
+}
+
+/* 好友搜索 */
+.friend-search-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.friend-search-row .search-box {
+  flex: 1;
+  margin-bottom: 0;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.friend-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+/* 好友标签 */
+.friend-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.friend-tabs .pixel-btn {
+  flex: 1;
+}
+
 /* 好友列表 */
 .friend-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* 好友项 */
+.friend-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: var(--pixel-panel-dark);
+  border: 2px solid var(--pixel-border);
+  transition: transform 0.1s, background-color 0.1s, border-color 0.1s;
+}
+
+.friend-item:hover {
+  background-color: var(--pixel-panel);
+  border-color: var(--pixel-accent);
+  transform: translateX(2px);
+}
+
+/* 头像 */
+.friend-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  flex-shrink: 0;
+  background-color: var(--pixel-bg-dark);
+  border: 2px solid var(--pixel-border);
+}
+
+/* 好友信息 */
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-name {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.friend-meta {
+  font-size: 10px;
+  color: #8ab88a;
+  margin-top: 1px;
+}
+
+/* 操作按钮组 */
+.friend-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.friend-actions .pixel-btn {
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+.friend-actions .pixel-btn.danger {
+  background-color: var(--pixel-danger);
+  color: white;
+}
+
+.friend-actions .pixel-btn.danger:hover {
+  background-color: #e74c3c;
+}
+
+/* 请求项 */
+.request-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: var(--pixel-panel-dark);
+  border: 2px solid var(--pixel-border);
+  transition: transform 0.1s, background-color 0.1s, border-color 0.1s;
+}
+
+.request-item:hover {
+  background-color: var(--pixel-panel);
+  border-color: var(--pixel-accent);
+  transform: translateX(2px);
+}
+
+/* 留言弹窗 */
+.message-modal-content {
+  width: 380px;
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  padding-right: 4px;
+}
+
+.message-item {
+  padding: 8px 10px;
+  background-color: var(--pixel-panel-dark);
+  border: 2px solid var(--pixel-border);
+  max-width: 85%;
+}
+
+.message-item.message-mine {
+  align-self: flex-end;
+  background-color: rgba(39, 174, 96, 0.15);
+  border-color: var(--pixel-success);
+}
+
+.message-item.message-theirs {
+  align-self: flex-start;
+  background-color: rgba(52, 152, 219, 0.15);
+  border-color: var(--pixel-info);
+}
+
+.message-content {
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.message-time {
+  font-size: 10px;
+  color: #6b8f7a;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.message-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.message-input-row .message-input {
+  flex: 1;
+  margin-bottom: 0;
+  font-size: 12px;
+  padding: 6px 10px;
 }
 
 .empty-text {

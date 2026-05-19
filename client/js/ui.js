@@ -35,7 +35,22 @@ class UIManager {
       notifModal: document.getElementById('notif-modal'),
       notifList: document.getElementById('notif-list'),
       friendModal: document.getElementById('friend-modal'),
-      friendList: document.getElementById('friend-list'),
+      friendList: document.getElementById('friend-list-container'),
+      friendRequestsContainer: document.getElementById('friend-requests-container'),
+      friendSearchInput: document.getElementById('friend-search-input'),
+      friendSearchBtn: document.getElementById('friend-search-btn'),
+      friendSearchResults: document.getElementById('friend-search-results'),
+      friendRequestBadge: document.getElementById('friend-request-badge'),
+      friendTabBtns: document.querySelectorAll('[data-friend-tab]'),
+      messageModal: document.getElementById('message-modal'),
+      messageList: document.getElementById('message-list'),
+      messageInput: document.getElementById('message-input'),
+      messageSendBtn: document.getElementById('message-send-btn'),
+      messageModalClose: document.getElementById('message-modal-close'),
+      giftModal: document.getElementById('gift-modal'),
+      giftSeedList: document.getElementById('gift-seed-list'),
+      giftModalClose: document.getElementById('gift-modal-close'),
+      btnBackMyFarm: document.getElementById('btn-back-my-farm'),
       toast: document.getElementById('notification-toast'),
       toastMessage: document.getElementById('toast-message'),
       plotTooltip: document.getElementById('plot-tooltip'),
@@ -49,6 +64,10 @@ class UIManager {
     this.currentCoins = 100;
     this.notifications = [];
     this.isSubmitting = false;
+    this.currentMessageFriendId = null;
+    this.currentGiftFriendId = null;
+    this.friendListData = [];
+    this.pendingRequestsData = [];
     this.initListeners();
     this.initKeyboard();
   }
@@ -97,7 +116,37 @@ class UIManager {
     this.elements.btnLogout.addEventListener('click', () => this.handleLogout());
     this.elements.btnNotifications.addEventListener('click', () => this.showNotifModal());
     this.elements.btnFriends.addEventListener('click', () => this.showFriendModal());
-    
+
+    // 好友搜索
+    this.elements.friendSearchBtn.addEventListener('click', () => this.handleSearchUsers());
+    this.elements.friendSearchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.handleSearchUsers();
+    });
+
+    // 好友标签切换
+    this.elements.friendTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => this.switchFriendTab(btn.dataset.friendTab));
+    });
+
+    // 留言弹窗
+    this.elements.messageModalClose.addEventListener('click', () => this.hideMessageModal());
+    this.elements.messageSendBtn.addEventListener('click', () => {
+      if (this.currentMessageFriendId) this.handleSendMessage(this.currentMessageFriendId);
+    });
+    this.elements.messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && this.currentMessageFriendId) {
+        this.handleSendMessage(this.currentMessageFriendId);
+      }
+    });
+
+    // 赠送种子弹窗
+    this.elements.giftModalClose.addEventListener('click', () => this.hideGiftModal());
+
+    // 返回我的农场
+    this.elements.btnBackMyFarm.addEventListener('click', () => {
+      if (window.game) window.game.loadMyFarm();
+    });
+
     const setupModalClose = (modalId) => {
       const modal = document.getElementById(modalId);
       modal.querySelector('.close-btn')?.addEventListener('click', () => modal.classList.add('hidden'));
@@ -116,7 +165,12 @@ class UIManager {
       const keyMap = { '1': 'cursor', '2': 'plant', '3': 'water', '4': 'harvest' };
       if (keyMap[e.key]) {
         e.preventDefault();
-        this.selectTool(keyMap[e.key]);
+        const tool = keyMap[e.key];
+        // 好友农场模式下禁止切换到种植/收获工具
+        if (window.game && window.game.state.viewingFriendFarm && (tool === 'plant' || tool === 'harvest')) {
+          return;
+        }
+        this.selectTool(tool);
       }
       if (e.key === 'Escape') this.hideAllModals();
     });
@@ -283,10 +337,23 @@ class UIManager {
     this.elements.friendModal.classList.add('hidden');
   }
 
+  hideMessageModal() {
+    this.elements.messageModal.classList.add('hidden');
+    this.currentMessageFriendId = null;
+    this.elements.messageInput.value = '';
+  }
+
+  hideGiftModal() {
+    this.elements.giftModal.classList.add('hidden');
+    this.currentGiftFriendId = null;
+  }
+
   hideAllModals() {
     this.hideSeedModal();
     this.hideNotifModal();
     this.hideFriendModal();
+    this.hideMessageModal();
+    this.hideGiftModal();
   }
 
   renderSeedList() {
@@ -453,8 +520,434 @@ class UIManager {
     });
   }
 
-  showFriendModal() {
+  /* ==================== 好友系统 ==================== */
+
+  async showFriendModal() {
     this.elements.friendModal.classList.remove('hidden');
+    this.switchFriendTab('friends');
+    await this.refreshFriendData();
+  }
+
+  async refreshFriendData() {
+    try {
+      const [friendsResult, requestsResult] = await Promise.all([
+        network.get('/api/friends'),
+        network.get('/api/friends/requests')
+      ]);
+      this.friendListData = friendsResult.success ? friendsResult.data : [];
+      this.pendingRequestsData = requestsResult.success ? requestsResult.data : [];
+      this.renderFriendList(this.friendListData);
+      this.renderPendingRequests(this.pendingRequestsData);
+      this.updateFriendRequestBadge(this.pendingRequestsData.length);
+    } catch (err) {
+      this.showToast('获取好友数据失败', 'error');
+    }
+  }
+
+  updateFriendRequestBadge(count) {
+    const badge = this.elements.friendRequestBadge;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  switchFriendTab(tab) {
+    this.elements.friendTabBtns.forEach(btn => {
+      const isActive = btn.dataset.friendTab === tab;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive);
+    });
+    if (tab === 'friends') {
+      this.elements.friendList.classList.remove('hidden');
+      this.elements.friendRequestsContainer.classList.add('hidden');
+    } else {
+      this.elements.friendList.classList.add('hidden');
+      this.elements.friendRequestsContainer.classList.remove('hidden');
+    }
+  }
+
+  renderFriendList(friends) {
+    const list = this.elements.friendList;
+    list.innerHTML = '';
+    if (!friends || friends.length === 0) {
+      const emptyP = document.createElement('p');
+      emptyP.className = 'empty-text';
+      emptyP.textContent = '暂无好友，去搜索添加吧！';
+      list.appendChild(emptyP);
+      return;
+    }
+    friends.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'friend-item';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'friend-avatar';
+      avatar.textContent = '👤';
+
+      const info = document.createElement('div');
+      info.className = 'friend-info';
+      const name = document.createElement('div');
+      name.className = 'friend-name';
+      name.textContent = f.display_name || f.username;
+      const meta = document.createElement('div');
+      meta.className = 'friend-meta';
+      meta.textContent = f.username;
+      info.appendChild(name);
+      info.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'friend-actions';
+
+      const btnFarm = document.createElement('button');
+      btnFarm.className = 'pixel-btn small';
+      btnFarm.textContent = '🏠 农场';
+      btnFarm.addEventListener('click', () => this.showFriendFarm(f.id));
+
+      const btnMessage = document.createElement('button');
+      btnMessage.className = 'pixel-btn small';
+      btnMessage.textContent = '💬 留言';
+      btnMessage.addEventListener('click', () => this.showMessageModal(f.id, f.display_name || f.username));
+
+      const btnGift = document.createElement('button');
+      btnGift.className = 'pixel-btn small';
+      btnGift.textContent = '🎁 赠种';
+      btnGift.addEventListener('click', () => this.showGiftModal(f.id));
+
+      const btnRemove = document.createElement('button');
+      btnRemove.className = 'pixel-btn small danger';
+      btnRemove.textContent = '✕';
+      btnRemove.title = '删除好友';
+      btnRemove.addEventListener('click', () => this.handleRemoveFriend(f.id));
+
+      actions.appendChild(btnFarm);
+      actions.appendChild(btnMessage);
+      actions.appendChild(btnGift);
+      actions.appendChild(btnRemove);
+
+      item.appendChild(avatar);
+      item.appendChild(info);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+
+  renderPendingRequests(requests) {
+    const list = this.elements.friendRequestsContainer;
+    list.innerHTML = '';
+    if (!requests || requests.length === 0) {
+      const emptyP = document.createElement('p');
+      emptyP.className = 'empty-text';
+      emptyP.textContent = '暂无好友请求';
+      list.appendChild(emptyP);
+      return;
+    }
+    requests.forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'request-item';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'friend-avatar';
+      avatar.textContent = '👤';
+
+      const info = document.createElement('div');
+      info.className = 'friend-info';
+      const name = document.createElement('div');
+      name.className = 'friend-name';
+      name.textContent = r.display_name || r.username;
+      const meta = document.createElement('div');
+      meta.className = 'friend-meta';
+      meta.textContent = r.username;
+      info.appendChild(name);
+      info.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'friend-actions';
+
+      const btnAccept = document.createElement('button');
+      btnAccept.className = 'pixel-btn small primary';
+      btnAccept.textContent = '✓ 接受';
+      btnAccept.addEventListener('click', () => this.handleAcceptRequest(r.user_id));
+
+      const btnReject = document.createElement('button');
+      btnReject.className = 'pixel-btn small';
+      btnReject.textContent = '✕ 拒绝';
+      btnReject.addEventListener('click', () => this.handleRejectRequest(r.user_id));
+
+      actions.appendChild(btnAccept);
+      actions.appendChild(btnReject);
+
+      item.appendChild(avatar);
+      item.appendChild(info);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+
+  async handleSearchUsers() {
+    const query = this.elements.friendSearchInput.value.trim();
+    if (!query) {
+      this.showToast('请输入搜索关键词', 'error');
+      return;
+    }
+    const resultsContainer = this.elements.friendSearchResults;
+    resultsContainer.innerHTML = '';
+    resultsContainer.classList.remove('hidden');
+
+    const loading = document.createElement('p');
+    loading.className = 'empty-text';
+    loading.textContent = '搜索中...';
+    resultsContainer.appendChild(loading);
+
+    try {
+      const result = await network.get('/api/friends/search?q=' + encodeURIComponent(query));
+      resultsContainer.innerHTML = '';
+      if (result.success && result.data && result.data.length > 0) {
+        result.data.forEach(u => {
+          const item = document.createElement('div');
+          item.className = 'friend-item';
+
+          const avatar = document.createElement('div');
+          avatar.className = 'friend-avatar';
+          avatar.textContent = '👤';
+
+          const info = document.createElement('div');
+          info.className = 'friend-info';
+          const name = document.createElement('div');
+          name.className = 'friend-name';
+          name.textContent = u.display_name || u.username;
+          const meta = document.createElement('div');
+          meta.className = 'friend-meta';
+          meta.textContent = u.username;
+          info.appendChild(name);
+          info.appendChild(meta);
+
+          const actions = document.createElement('div');
+          actions.className = 'friend-actions';
+          const btnAdd = document.createElement('button');
+          btnAdd.className = 'pixel-btn small primary';
+          btnAdd.textContent = '+ 添加';
+          btnAdd.addEventListener('click', () => this.handleSendRequest(u.id));
+          actions.appendChild(btnAdd);
+
+          item.appendChild(avatar);
+          item.appendChild(info);
+          item.appendChild(actions);
+          resultsContainer.appendChild(item);
+        });
+      } else {
+        const emptyP = document.createElement('p');
+        emptyP.className = 'empty-text';
+        emptyP.textContent = '未找到用户';
+        resultsContainer.appendChild(emptyP);
+      }
+    } catch (err) {
+      resultsContainer.innerHTML = '';
+      const errP = document.createElement('p');
+      errP.className = 'empty-text';
+      errP.textContent = '搜索失败';
+      resultsContainer.appendChild(errP);
+      this.showToast('搜索失败: ' + err.message, 'error');
+    }
+  }
+
+  async handleSendRequest(friendId) {
+    try {
+      const result = await network.post('/api/friends/request', { friendId });
+      if (result.success) {
+        this.showToast('好友请求已发送', 'success');
+        this.elements.friendSearchResults.classList.add('hidden');
+        this.elements.friendSearchInput.value = '';
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('发送请求失败: ' + err.message, 'error');
+    }
+  }
+
+  async handleAcceptRequest(friendId) {
+    try {
+      const result = await network.post('/api/friends/accept', { friendId });
+      if (result.success) {
+        this.showToast('已接受好友请求', 'success');
+        await this.refreshFriendData();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('接受请求失败: ' + err.message, 'error');
+    }
+  }
+
+  async handleRejectRequest(friendId) {
+    try {
+      const result = await network.post('/api/friends/reject', { friendId });
+      if (result.success) {
+        this.showToast('已拒绝好友请求', 'success');
+        await this.refreshFriendData();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('拒绝请求失败: ' + err.message, 'error');
+    }
+  }
+
+  async handleRemoveFriend(friendId) {
+    if (!confirm('确定要删除这位好友吗？')) return;
+    try {
+      const result = await network.delete('/api/friends/' + friendId);
+      if (result.success) {
+        this.showToast('已删除好友', 'success');
+        await this.refreshFriendData();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('删除好友失败: ' + err.message, 'error');
+    }
+  }
+
+  async showFriendFarm(friendId) {
+    this.hideFriendModal();
+    if (window.game) {
+      await window.game.loadFriendFarm(friendId);
+    }
+  }
+
+  async showMessageModal(friendId, friendName) {
+    this.currentMessageFriendId = friendId;
+    const title = document.getElementById('message-modal-title');
+    title.textContent = '💬 与 ' + friendName + ' 的留言';
+    this.elements.messageModal.classList.remove('hidden');
+    await this.loadMessages(friendId);
+  }
+
+  async loadMessages(friendId) {
+    const list = this.elements.messageList;
+    list.innerHTML = '';
+    try {
+      const result = await network.get('/api/friends/messages/' + friendId);
+      if (result.success && result.data && result.data.length > 0) {
+        result.data.forEach(m => {
+          const item = document.createElement('div');
+          item.className = 'message-item';
+          const isMe = m.sender_id === parseInt(localStorage.getItem('farm_user_id') || '0');
+          item.classList.add(isMe ? 'message-mine' : 'message-theirs');
+
+          const content = document.createElement('div');
+          content.className = 'message-content';
+          content.textContent = m.content;
+
+          const time = document.createElement('div');
+          time.className = 'message-time';
+          time.textContent = new Date(m.created_at).toLocaleString();
+
+          item.appendChild(content);
+          item.appendChild(time);
+          list.appendChild(item);
+        });
+        list.scrollTop = list.scrollHeight;
+      } else {
+        const emptyP = document.createElement('p');
+        emptyP.className = 'empty-text';
+        emptyP.textContent = '暂无留言，发送一条吧！';
+        list.appendChild(emptyP);
+      }
+    } catch (err) {
+      const errP = document.createElement('p');
+      errP.className = 'empty-text';
+      errP.textContent = '获取留言失败';
+      list.appendChild(errP);
+      this.showToast('获取留言失败: ' + err.message, 'error');
+    }
+  }
+
+  async handleSendMessage(friendId) {
+    const content = this.elements.messageInput.value.trim();
+    if (!content) {
+      this.showToast('请输入留言内容', 'error');
+      return;
+    }
+    try {
+      const result = await network.post('/api/friends/message', { friendId, content });
+      if (result.success) {
+        this.elements.messageInput.value = '';
+        await this.loadMessages(friendId);
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('发送留言失败: ' + err.message, 'error');
+    }
+  }
+
+  async showGiftModal(friendId) {
+    this.currentGiftFriendId = friendId;
+    this.elements.giftModal.classList.remove('hidden');
+    const list = this.elements.giftSeedList;
+    list.innerHTML = '';
+
+    if (!this.cropTypes || this.cropTypes.length === 0) {
+      try {
+        const result = await network.get('/api/crops');
+        if (result.success) this.cropTypes = result.data;
+      } catch (err) {
+        this.showToast('获取种子列表失败', 'error');
+        this.hideGiftModal();
+        return;
+      }
+    }
+
+    this.cropTypes.forEach(crop => {
+      const item = document.createElement('div');
+      item.className = 'seed-item';
+
+      const seedIcon = document.createElement('div');
+      seedIcon.className = 'seed-icon';
+      seedIcon.style.backgroundColor = crop.color;
+      item.appendChild(seedIcon);
+
+      const seedInfo = document.createElement('div');
+      seedInfo.className = 'seed-info';
+      const seedName = document.createElement('div');
+      seedName.className = 'seed-name';
+      seedName.textContent = crop.name;
+      const seedDesc = document.createElement('div');
+      seedDesc.className = 'seed-desc';
+      seedDesc.textContent = crop.description;
+      seedInfo.appendChild(seedName);
+      seedInfo.appendChild(seedDesc);
+      item.appendChild(seedInfo);
+
+      const seedMeta = document.createElement('div');
+      seedMeta.className = 'seed-meta';
+      const seedPrice = document.createElement('div');
+      seedPrice.className = 'seed-price';
+      seedPrice.textContent = `${crop.buy_price}💰`;
+      seedMeta.appendChild(seedPrice);
+      item.appendChild(seedMeta);
+
+      item.addEventListener('click', () => this.handleSendGift(friendId, crop.id, crop.name));
+      list.appendChild(item);
+    });
+  }
+
+  async handleSendGift(friendId, cropTypeId, cropName) {
+    try {
+      const result = await network.post('/api/friends/gift', { friendId, cropTypeId, quantity: 1 });
+      if (result.success) {
+        this.showToast(`已赠送 ${cropName} 种子`, 'success');
+        this.hideGiftModal();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('赠送种子失败: ' + err.message, 'error');
+    }
   }
 
   showNotifBadge(count) {

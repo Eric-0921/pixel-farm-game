@@ -71,6 +71,9 @@
       </div>
     </div>
 
+    <!-- 返回我的农场按钮 -->
+    <button id="btn-back-my-farm" class="pixel-btn small hidden back-farm-btn" title="返回我的农场">🏠 返回我的农场</button>
+
     <!-- 底部工具栏 -->
     <nav class="bottom-bar pixel-panel" role="navigation" aria-label="游戏工具栏">
       <div class="tool-selector">
@@ -140,9 +143,60 @@
         <button class="pixel-btn close-btn" data-close="friend" aria-label="关闭好友弹窗">✕</button>
       </div>
       <div class="modal-body">
-        <div id="friend-list" class="friend-list" aria-labelledby="friend-modal-title">
-          <p class="empty-text">好友功能即将上线</p>
+        <!-- 搜索框 -->
+        <div class="friend-search-row">
+          <input type="text" id="friend-search-input" class="pixel-input search-box" placeholder="搜索用户名..." maxlength="20" aria-label="搜索用户">
+          <button id="friend-search-btn" class="pixel-btn small">🔍 搜索</button>
         </div>
+        <div id="friend-search-results" class="friend-search-results hidden"></div>
+
+        <!-- 标签切换 -->
+        <div class="friend-tabs">
+          <button class="pixel-btn small active" data-friend-tab="friends" aria-selected="true">我的好友</button>
+          <button class="pixel-btn small" data-friend-tab="requests" aria-selected="false">好友请求 <span id="friend-request-badge" class="badge hidden">0</span></button>
+        </div>
+
+        <!-- 好友列表 -->
+        <div id="friend-list-container" class="friend-list" aria-labelledby="friend-modal-title">
+          <p class="empty-text">加载中...</p>
+        </div>
+
+        <!-- 好友请求列表 -->
+        <div id="friend-requests-container" class="friend-list hidden">
+          <p class="empty-text">加载中...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 留言弹窗 -->
+  <div id="message-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="好友留言">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel message-modal-content">
+      <div class="modal-header">
+        <h2 class="pixel-text" id="message-modal-title">💬 留言</h2>
+        <button class="pixel-btn close-btn" id="message-modal-close" aria-label="关闭留言弹窗">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="message-list" class="message-list"></div>
+        <div class="message-input-row">
+          <input type="text" id="message-input" class="pixel-input message-input" placeholder="输入留言..." maxlength="200" aria-label="留言内容">
+          <button id="message-send-btn" class="pixel-btn small primary">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 赠送种子弹窗 -->
+  <div id="gift-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="赠送种子">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text" id="gift-modal-title">🎁 赠送种子</h2>
+        <button class="pixel-btn close-btn" id="gift-modal-close" aria-label="关闭赠送弹窗">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="gift-seed-list" class="seed-list"></div>
       </div>
     </div>
   </div>

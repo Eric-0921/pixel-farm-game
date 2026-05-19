@@ -273,8 +273,30 @@ function harvestCrop(userId, plotId) {
   };
 }
 
+/**
+ * 获取好友农场（查看模式，不能操作）
+ * @param {number} userId - 当前用户ID
+ * @param {number} friendId - 好友ID
+ * @returns {Object} - 好友农场数据
+ */
+function getFriendFarm(userId, friendId) {
+  // 检查是否为好友关系
+  const friendship = db.friends.find(f => f.user_id === userId && f.friend_id === friendId && f.status === 'accepted');
+  if (!friendship) {
+    throw new Error('只能查看好友的农场');
+  }
+
+  const farm = getFarmByUserId(friendId);
+
+  // 移除敏感信息（金币、经验）
+  const { coins, experience, ...safeFarm } = farm;
+
+  return safeFarm;
+}
+
 module.exports = {
   getFarmByUserId,
+  getFriendFarm,
   plantCrop,
   waterCrop,
   harvestCrop

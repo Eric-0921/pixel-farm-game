@@ -13,7 +13,10 @@ const db = {
   plantings: [],
   friends: [],
   notifications: [],
-  _seq: { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1 }
+  messages: [],
+  daily_actions: [],
+  gifts: [],
+  _seq: { users: 1, farms: 1, plots: 1, crop_types: 1, plantings: 1, friends: 1, notifications: 1, messages: 1, daily_actions: 1, gifts: 1 }
 };
 
 function save() {
