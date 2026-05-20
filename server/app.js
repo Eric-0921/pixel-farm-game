@@ -61,12 +61,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 错误处理中间件
+// 404 处理
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: '接口不存在' });
+});
+
+// 全局错误处理
 app.use((err, req, res, next) => {
-  console.error('API Error:', err);
-  res.status(err.status || 500).json({
+  console.error('Server error:', err);
+  const isDev = process.env.NODE_ENV === 'development';
+  res.status(500).json({
     success: false,
-    message: err.message || '服务器内部错误'
+    message: '服务器内部错误',
+    ...(isDev ? { debug: err.message } : {})
   });
 });
 

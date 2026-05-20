@@ -24,6 +24,7 @@ function getJwtSecret() {
   try {
     fs.mkdirSync(path.dirname(secretFile), { recursive: true });
     fs.writeFileSync(secretFile, randomSecret);
+    fs.chmodSync(secretFile, 0o600);
   } catch (e) {}
   
   console.warn('⚠️ 警告: JWT_SECRET 未设置，已生成随机密钥并保存到 database/.jwt_secret');
@@ -52,6 +53,7 @@ function getVapidKeys() {
     const vapidKeys = webpush.generateVAPIDKeys();
     fs.mkdirSync(path.dirname(vapidFile), { recursive: true });
     fs.writeFileSync(vapidFile, JSON.stringify(vapidKeys, null, 2));
+    fs.chmodSync(vapidFile, 0o600);
     console.log('🔐 已生成新的 VAPID 密钥对');
     return vapidKeys;
   } catch (e) {

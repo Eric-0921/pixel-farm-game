@@ -2,8 +2,27 @@ const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const config = require('./config');
 
-// 存储连接的客户端 { userId -> ws }
+// 存储连接的客户端 { userId -> Set<ws> }
 const clients = new Map();
+
+/**
+ * 添加客户端连接
+ */
+function addClient(userId, ws) {
+  if (!clients.has(userId)) clients.set(userId, new Set());
+  clients.get(userId).add(ws);
+  ws.userId = userId;
+}
+
+/**
+ * 移除客户端连接
+ */
+function removeClient(ws) {
+  if (ws.userId && clients.has(ws.userId)) {
+    clients.get(ws.userId).delete(ws);
+    if (clients.get(ws.userId).size === 0) clients.delete(ws.userId);
+  }
+}
 
 /**
  * 初始化 WebSocket 服务器
@@ -33,13 +52,7 @@ function initWebSocketServer(server) {
     
     ws.on('close', () => {
       console.log('📡 客户端断开连接');
-      // 清理客户端映射
-      for (const [userId, client] of clients.entries()) {
-        if (client === ws) {
-          clients.delete(userId);
-          break;
-        }
-      }
+      removeClient(ws);
     });
     
     ws.on('error', (err) => {
@@ -89,8 +102,7 @@ function handleMessage(ws, data) {
             ws.send(JSON.stringify({ type: 'auth_failed', message: '令牌中未包含用户ID' }));
             break;
           }
-          clients.set(userId, ws);
-          ws.userId = userId;
+          addClient(userId, ws);
           ws.send(JSON.stringify({ type: 'auth_success', userId }));
         } catch (err) {
           console.error('WebSocket 认证失败:', err.message);
@@ -114,10 +126,17 @@ function handleMessage(ws, data) {
  * 向指定用户发送消息
  */
 function sendToUser(userId, message) {
-  const ws = clients.get(userId);
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(message));
-    return true;
+  const userClients = clients.get(userId);
+  if (userClients) {
+    const data = JSON.stringify(message);
+    let sent = false;
+    userClients.forEach(ws => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+        sent = true;
+      }
+    });
+    return sent;
   }
   return false;
 }
@@ -126,10 +145,13 @@ function sendToUser(userId, message) {
  * 广播消息给所有在线用户
  */
 function broadcast(message) {
-  clients.forEach((ws) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
+  const data = JSON.stringify(message);
+  clients.forEach((userClients) => {
+    userClients.forEach(ws => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+      }
+    });
   });
 }
 

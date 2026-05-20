@@ -6,16 +6,47 @@ const config = require('../config');
 
 const router = express.Router();
 
+function validateUsername(username) {
+  if (!username || username.length < 3 || username.length > 20) return '用户名长度应为3-20位';
+  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(username)) return '用户名只能包含字母、数字、下划线和中文';
+  return null;
+}
+
+function validatePassword(password) {
+  if (!password || password.length < 4) return '密码至少4位';
+  if (password.length > 30) return '密码最长30位';
+  return null;
+}
+
+function isBusinessError(err) {
+  if (!err || !err.message) return false;
+  const msg = err.message;
+  return msg.includes('不存在') || msg.includes('不能') || msg.includes('已存在') ||
+    msg.includes('不能为空') || msg.includes('超过') || msg.includes('只能') ||
+    msg.includes('好友请求') || msg.includes('缺少') || msg.includes('请求过于频繁') ||
+    msg.includes('无效') || msg.includes('未提供') || msg.includes('错误');
+}
+
 /**
  * POST /api/auth/register
  * 用户注册
  */
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res, next) => {
   try {
     const { username, password, displayName } = req.body;
     
     if (!username || !password) {
       return res.status(400).json({ success: false, message: '用户名和密码不能为空' });
+    }
+
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      return res.status(400).json({ success: false, message: usernameError });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
     }
     
     const db = getDatabase();
@@ -62,7 +93,10 @@ router.post('/register', async (req, res) => {
     });
   } catch (err) {
     console.error('注册失败:', err);
-    res.status(500).json({ success: false, message: '注册失败: ' + err.message });
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -70,7 +104,7 @@ router.post('/register', async (req, res) => {
  * POST /api/auth/login
  * 用户登录
  */
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   try {
     const { username, password } = req.body;
     
@@ -115,7 +149,10 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error('登录失败:', err);
-    res.status(500).json({ success: false, message: '登录失败: ' + err.message });
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 

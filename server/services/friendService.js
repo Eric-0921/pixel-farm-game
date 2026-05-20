@@ -98,14 +98,24 @@ function searchUsers(userId, query) {
   }
 
   const q = query.trim().toLowerCase();
+  if (q.length < 1) {
+    return [];
+  }
+
+  // 过滤通配符，防止 LIKE 注入
+  const safeQ = q.replace(/[%_]/g, '');
+  if (safeQ.length === 0) {
+    return [];
+  }
+
   const db = getDatabase();
 
   // 获取当前用户的好友ID列表
   const friendRows = db.prepare("SELECT friend_id FROM friends WHERE user_id = ? AND status IN ('accepted', 'pending')").all(userId);
   const friendIds = new Set(friendRows.map(f => f.friend_id));
 
-  // 搜索用户（排除自己和好友）
-  const users = db.prepare("SELECT id, username, display_name FROM users WHERE username LIKE ?").all('%' + q + '%');
+  // 搜索用户（排除自己和好友），限制最多20条
+  const users = db.prepare("SELECT id, username, display_name FROM users WHERE username LIKE ? LIMIT 20").all('%' + safeQ + '%');
   return users
     .filter(u => u.id !== userId && !friendIds.has(u.id))
     .map(u => ({

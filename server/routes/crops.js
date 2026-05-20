@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const { getDatabase } = require('../database');
 const dailyActionService = require('../services/dailyActionService');
+const achievementService = require('../services/achievementService');
 
 const router = express.Router();
 
@@ -21,18 +22,27 @@ function validatePositiveInteger(value, fieldName) {
   return { valid: true, value: num };
 }
 
+function isBusinessError(err) {
+  if (!err || !err.message) return false;
+  const msg = err.message;
+  return msg.includes('不存在') || msg.includes('不能') || msg.includes('已存在') ||
+    msg.includes('不能为空') || msg.includes('超过') || msg.includes('只能') ||
+    msg.includes('好友请求') || msg.includes('缺少') || msg.includes('请求过于频繁') ||
+    msg.includes('无效') || msg.includes('未提供') || msg.includes('错误');
+}
+
 /**
  * GET /api/crops
  * 获取所有作物类型
  */
-router.get('/', (req, res) => {
+router.get('/', (req, res, next) => {
   try {
     const db = getDatabase();
     const crops = db.prepare('SELECT * FROM crop_types ORDER BY buy_price ASC').all();
     res.json({ success: true, data: crops });
   } catch (err) {
     console.error('获取作物类型失败:', err);
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 });
 
@@ -42,7 +52,7 @@ router.get('/', (req, res) => {
  * 限制：每天最多帮同一个好友浇 3 次水
  * 奖励：双方获得少量经验
  */
-router.post('/water-friend/:friendId/:plotId', authenticateToken, (req, res) => {
+router.post('/water-friend/:friendId/:plotId', authenticateToken, (req, res, next) => {
   try {
     const friendValidation = validatePositiveInteger(req.params.friendId, '好友ID');
     if (!friendValidation.valid) {
@@ -110,6 +120,9 @@ router.post('/water-friend/:friendId/:plotId', authenticateToken, (req, res) => 
     // 记录每日操作
     dailyActionService.recordAction(userId, friendId, 'water_friend');
 
+    // 统计帮好友浇水次数
+    achievementService.incrementStat(userId, 'help_water_count', 1);
+
     res.json({
       success: true,
       message: '帮好友浇水成功',
@@ -121,7 +134,10 @@ router.post('/water-friend/:friendId/:plotId', authenticateToken, (req, res) => 
     });
   } catch (err) {
     console.error('帮好友浇水失败:', err);
-    res.status(500).json({ success: false, message: err.message });
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 

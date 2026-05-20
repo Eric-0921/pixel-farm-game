@@ -22,16 +22,29 @@ function validatePositiveInteger(value, fieldName) {
   return { valid: true, value: num };
 }
 
+function isBusinessError(err) {
+  if (!err || !err.message) return false;
+  const msg = err.message;
+  return msg.includes('不存在') || msg.includes('不能') || msg.includes('已存在') ||
+    msg.includes('不能为空') || msg.includes('超过') || msg.includes('只能') ||
+    msg.includes('好友请求') || msg.includes('缺少') || msg.includes('请求过于频繁') ||
+    msg.includes('无效') || msg.includes('未提供') || msg.includes('错误');
+}
+
 /**
  * GET /api/notifications
  * 获取通知列表
  */
-router.get('/', (req, res) => {
+router.get('/', (req, res, next) => {
   try {
     const notifications = notificationService.getNotifications(req.userId);
     res.json({ success: true, data: notifications });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('获取通知失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -39,7 +52,7 @@ router.get('/', (req, res) => {
  * POST /api/notifications/read
  * 标记通知为已读
  */
-router.post('/read', (req, res) => {
+router.post('/read', (req, res, next) => {
   try {
     const { notificationId } = req.body;
     
@@ -51,7 +64,11 @@ router.post('/read', (req, res) => {
     notificationService.markAsRead(req.userId, validation.value);
     res.json({ success: true, message: '已标记为已读' });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('标记通知失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -59,14 +76,18 @@ router.post('/read', (req, res) => {
  * GET /api/notifications/vapid-public-key
  * 获取 VAPID 公钥
  */
-router.get('/vapid-public-key', (req, res) => {
+router.get('/vapid-public-key', (req, res, next) => {
   try {
     if (!config.vapidPublicKey) {
       return res.status(500).json({ success: false, message: 'VAPID 公钥未配置' });
     }
     res.json({ success: true, publicKey: config.vapidPublicKey });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('获取 VAPID 公钥失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -74,7 +95,7 @@ router.get('/vapid-public-key', (req, res) => {
  * POST /api/notifications/subscribe
  * 保存 Push 订阅
  */
-router.post('/subscribe', (req, res) => {
+router.post('/subscribe', (req, res, next) => {
   try {
     const { subscription } = req.body;
     
@@ -85,7 +106,11 @@ router.post('/subscribe', (req, res) => {
     pushService.saveSubscription(req.userId, subscription);
     res.json({ success: true, message: '订阅成功' });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('保存订阅失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -93,12 +118,16 @@ router.post('/subscribe', (req, res) => {
  * POST /api/notifications/unsubscribe
  * 删除 Push 订阅
  */
-router.post('/unsubscribe', (req, res) => {
+router.post('/unsubscribe', (req, res, next) => {
   try {
     pushService.removeSubscription(req.userId);
     res.json({ success: true, message: '已取消订阅' });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('取消订阅失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 

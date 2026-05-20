@@ -41,16 +41,29 @@ function validatePositiveInteger(value, fieldName) {
   return { valid: true, value: num };
 }
 
+function isBusinessError(err) {
+  if (!err || !err.message) return false;
+  const msg = err.message;
+  return msg.includes('不存在') || msg.includes('不能') || msg.includes('已存在') ||
+    msg.includes('不能为空') || msg.includes('超过') || msg.includes('只能') ||
+    msg.includes('好友请求') || msg.includes('缺少') || msg.includes('请求过于频繁') ||
+    msg.includes('无效') || msg.includes('未提供') || msg.includes('错误');
+}
+
 /**
  * GET /api/friends
  * 获取好友列表
  */
-router.get('/', (req, res) => {
+router.get('/', (req, res, next) => {
   try {
     const friends = friendService.getFriends(req.userId);
     res.json({ success: true, data: friends });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('获取好友列表失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -58,7 +71,7 @@ router.get('/', (req, res) => {
  * GET /api/friends/search?q=xxx
  * 搜索用户
  */
-router.get('/search', (req, res) => {
+router.get('/search', (req, res, next) => {
   try {
     const { q } = req.query;
     if (!q || q.trim().length === 0) {
@@ -67,7 +80,11 @@ router.get('/search', (req, res) => {
     const results = friendService.searchUsers(req.userId, q.trim());
     res.json({ success: true, data: results });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('搜索用户失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -75,12 +92,16 @@ router.get('/search', (req, res) => {
  * GET /api/friends/requests
  * 获取待处理的好友请求
  */
-router.get('/requests', (req, res) => {
+router.get('/requests', (req, res, next) => {
   try {
     const requests = friendService.getPendingRequests(req.userId);
     res.json({ success: true, data: requests });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('获取好友请求失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -88,7 +109,7 @@ router.get('/requests', (req, res) => {
  * POST /api/friends/request
  * 发送好友请求
  */
-router.post('/request', friendRequestLimiter, (req, res) => {
+router.post('/request', friendRequestLimiter, (req, res, next) => {
   try {
     const { friendId } = req.body;
     
@@ -100,7 +121,11 @@ router.post('/request', friendRequestLimiter, (req, res) => {
     friendService.sendFriendRequest(req.userId, validation.value);
     res.json({ success: true, message: '好友请求已发送' });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('发送好友请求失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -108,7 +133,7 @@ router.post('/request', friendRequestLimiter, (req, res) => {
  * POST /api/friends/accept
  * 接受好友请求
  */
-router.post('/accept', (req, res) => {
+router.post('/accept', (req, res, next) => {
   try {
     const { friendId } = req.body;
     
@@ -120,7 +145,11 @@ router.post('/accept', (req, res) => {
     friendService.acceptFriendRequest(req.userId, validation.value);
     res.json({ success: true, message: '已接受好友请求' });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('接受好友请求失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -128,7 +157,7 @@ router.post('/accept', (req, res) => {
  * POST /api/friends/reject
  * 拒绝好友请求
  */
-router.post('/reject', (req, res) => {
+router.post('/reject', (req, res, next) => {
   try {
     const { friendId } = req.body;
     
@@ -140,7 +169,11 @@ router.post('/reject', (req, res) => {
     friendService.rejectFriendRequest(req.userId, validation.value);
     res.json({ success: true, message: '已拒绝好友请求' });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('拒绝好友请求失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -148,7 +181,7 @@ router.post('/reject', (req, res) => {
  * DELETE /api/friends/:friendId
  * 删除好友
  */
-router.delete('/:friendId', (req, res) => {
+router.delete('/:friendId', (req, res, next) => {
   try {
     const validation = validatePositiveInteger(req.params.friendId, '好友ID');
     if (!validation.valid) {
@@ -158,7 +191,11 @@ router.delete('/:friendId', (req, res) => {
     friendService.removeFriend(req.userId, validation.value);
     res.json({ success: true, message: '已删除好友' });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('删除好友失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -166,7 +203,7 @@ router.delete('/:friendId', (req, res) => {
  * POST /api/friends/message
  * 发送留言
  */
-router.post('/message', friendMessageLimiter, (req, res) => {
+router.post('/message', friendMessageLimiter, (req, res, next) => {
   try {
     const { friendId, content } = req.body;
     
@@ -182,7 +219,11 @@ router.post('/message', friendMessageLimiter, (req, res) => {
     friendService.sendMessage(req.userId, friendValidation.value, content);
     res.json({ success: true, message: '留言已发送' });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('发送留言失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -190,7 +231,7 @@ router.post('/message', friendMessageLimiter, (req, res) => {
  * GET /api/friends/messages/:friendId
  * 获取留言记录
  */
-router.get('/messages/:friendId', (req, res) => {
+router.get('/messages/:friendId', (req, res, next) => {
   try {
     const validation = validatePositiveInteger(req.params.friendId, '好友ID');
     if (!validation.valid) {
@@ -200,7 +241,11 @@ router.get('/messages/:friendId', (req, res) => {
     const messages = friendService.getMessages(req.userId, validation.value);
     res.json({ success: true, data: messages });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('获取留言失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 
@@ -208,7 +253,7 @@ router.get('/messages/:friendId', (req, res) => {
  * POST /api/friends/gift
  * 赠送种子
  */
-router.post('/gift', (req, res) => {
+router.post('/gift', (req, res, next) => {
   try {
     const { friendId, cropTypeId, quantity } = req.body;
     
@@ -233,7 +278,11 @@ router.post('/gift', (req, res) => {
     friendService.sendGift(req.userId, friendValidation.value, cropValidation.value, qtyValidation.value);
     res.json({ success: true, message: '种子赠送成功' });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('赠送种子失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
   }
 });
 

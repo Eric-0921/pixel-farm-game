@@ -1,10 +1,11 @@
 const { getDatabase } = require('../database');
 
 /**
- * 获取今天的日期字符串（YYYY-MM-DD）
+ * 获取今天的日期字符串（本地时间 YYYY-MM-DD）
  */
 function getToday() {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 /**
