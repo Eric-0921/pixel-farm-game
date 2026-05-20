@@ -143,19 +143,28 @@ function doCheckin(userId) {
       }
     }
 
-    // 7天额外奖励：随机种子
-    let extraReward = null;
+    // 7天额外奖励：随机种子转换为等值金币（种子价值的50%）
+    let totalReward = reward;
+    let message = `签到成功！获得 ${reward} 金币`;
     if (consecutiveDays >= 7) {
-      const seeds = ['小麦', '胡萝卜', '番茄'];
-      extraReward = seeds[Math.floor(Math.random() * seeds.length)];
+      const bonusCrops = [
+        { name: '小麦', value: 10 },
+        { name: '胡萝卜', value: 20 },
+        { name: '番茄', value: 35 }
+      ];
+      const bonus = bonusCrops[Math.floor(Math.random() * bonusCrops.length)];
+      const bonusCoins = Math.floor(bonus.value * 0.5);
+      totalReward += bonusCoins;
+      db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').run(bonusCoins, userId);
+      message = `签到成功！获得 ${totalReward} 金币（含${bonus.name}种子奖励）`;
     }
 
     return {
       success: true,
-      reward,
+      reward: totalReward,
       consecutiveDays,
-      message: `签到成功！获得 ${reward} 金币`,
-      extraReward
+      message,
+      extraReward: consecutiveDays >= 7 ? message.split('含')[1].replace('）', '') : null
     };
   } catch (err) {
     console.error('签到失败:', err);

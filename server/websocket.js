@@ -5,6 +5,9 @@ const config = require('./config');
 // 存储连接的客户端 { userId -> Set<ws> }
 const clients = new Map();
 
+const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB
+const MAX_MESSAGES_PER_SECOND = 10;
+
 /**
  * 添加客户端连接
  */
@@ -41,7 +44,44 @@ function initWebSocketServer(server) {
       ws.isAlive = true;
     });
     
+    // 消息频率限制
+    ws.messageCount = 0;
+    ws.messageCountReset = Date.now();
+
     ws.on('message', (message) => {
+      // 消息大小限制
+      if (message.length > MAX_MESSAGE_SIZE) {
+        ws.close(1009, 'Message too large');
+        return;
+      }
+
+      // 频率限制
+      const now = Date.now();
+      if (now - ws.messageCountReset >= 1000) {
+        ws.messageCount = 0;
+        ws.messageCountReset = now;
+      }
+      ws.messageCount++;
+      if (ws.messageCount > MAX_MESSAGES_PER_SECOND) {
+        ws.close(1008, 'Message rate limit exceeded');
+        return;
+      }
+
+      // 未认证连接只允许发送 auth 消息
+      if (!ws.userId) {
+        try {
+          const data = JSON.parse(message);
+          if (data.type !== 'auth') {
+            ws.send(JSON.stringify({ type: 'auth_failed', message: '请先进行认证' }));
+            return;
+          }
+          handleMessage(ws, data);
+        } catch (err) {
+          console.error('WebSocket 消息解析失败:', err);
+        }
+        return;
+      }
+
       try {
         const data = JSON.parse(message);
         handleMessage(ws, data);

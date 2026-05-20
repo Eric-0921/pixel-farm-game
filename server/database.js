@@ -159,6 +159,13 @@ function initDatabase() {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(user_id, stat_key)
     );
+
+    CREATE INDEX IF NOT EXISTS idx_plantings_harvested ON plantings(harvested_at);
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_sender_receiver ON messages(sender_id, receiver_id);
+    CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);
+    CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id);
+    CREATE INDEX IF NOT EXISTS idx_checkins_user_date ON checkins(user_id, checkin_date);
   `);
 
   // 初始化 crop_types（如果不存在）

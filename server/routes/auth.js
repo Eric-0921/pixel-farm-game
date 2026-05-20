@@ -58,7 +58,7 @@ router.post('/register', async (req, res, next) => {
     }
     
     // 密码哈希（异步）
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     
     // 创建用户
     const result = db.prepare(`

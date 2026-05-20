@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const config = require('./config');
 const rateLimit = require('express-rate-limit');
 
@@ -11,6 +12,8 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:3000 wss://*;");
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
 
@@ -43,6 +46,45 @@ app.use('/api/auth/login', authLimiter);
 
 // 对其他 API 路由应用通用限流
 app.use('/api', apiLimiter);
+
+// 辅助函数：从请求中获取用户ID（优先使用已解析的，其次从JWT头解析）
+function getRateLimitKey(req) {
+  if (req.userId) return req.userId.toString();
+  const authHeader = req.headers['authorization'];
+  if (authHeader) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, config.jwtSecret);
+      return decoded.userId.toString();
+    } catch (e) {
+      return 'unauth';
+    }
+  }
+  return 'unauth';
+}
+
+// 速率限制：农场操作（种植/浇水/收获）- 每用户每分钟 30 次
+const farmActionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getRateLimitKey,
+  message: { success: false, message: '操作过于频繁，请稍后再试' }
+});
+
+// 速率限制：签到 - 每用户每天 5 次
+const checkinLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getRateLimitKey,
+  message: { success: false, message: '今日签到次数已达上限' }
+});
+
+app.use('/api/farm/', farmActionLimiter);
+app.use('/api/checkin', checkinLimiter);
 
 // 静态文件服务（前端）
 app.use(express.static(path.join(__dirname, '../client')));

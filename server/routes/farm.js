@@ -1,26 +1,12 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
+const { validatePositiveInteger } = require('../utils/validators');
 const farmService = require('../services/farmService');
 
 const router = express.Router();
 
 // 所有农场路由需要认证
 router.use(authenticateToken);
-
-/**
- * 验证正整数输入
- */
-function validatePositiveInteger(value, fieldName) {
-  const num = parseInt(value, 10);
-  if (isNaN(num) || num <= 0 || !Number.isFinite(num)) {
-    return { valid: false, message: `${fieldName} 必须是有效的正整数` };
-  }
-  // 防止超大值（SQL 注入或溢出攻击）
-  if (num > Number.MAX_SAFE_INTEGER) {
-    return { valid: false, message: `${fieldName} 超出允许范围` };
-  }
-  return { valid: true, value: num };
-}
 
 function isBusinessError(err) {
   if (!err || !err.message) return false;

@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
+const { validatePositiveInteger } = require('../utils/validators');
 const notificationService = require('../services/notificationService');
 const pushService = require('../services/pushService');
 const config = require('../config');
@@ -7,20 +8,6 @@ const config = require('../config');
 const router = express.Router();
 
 router.use(authenticateToken);
-
-/**
- * 验证正整数输入
- */
-function validatePositiveInteger(value, fieldName) {
-  const num = parseInt(value, 10);
-  if (isNaN(num) || num <= 0 || !Number.isFinite(num)) {
-    return { valid: false, message: `${fieldName} 必须是有效的正整数` };
-  }
-  if (num > Number.MAX_SAFE_INTEGER) {
-    return { valid: false, message: `${fieldName} 超出允许范围` };
-  }
-  return { valid: true, value: num };
-}
 
 function isBusinessError(err) {
   if (!err || !err.message) return false;
