@@ -285,6 +285,26 @@ html, body {
   text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
 }
 
+/* ==================== Demo 快速体验 ==================== */
+.demo-entry {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px dashed var(--pixel-border);
+}
+
+.demo-hint {
+  font-size: var(--font-size-small);
+  color: #8ab88a;
+  margin-bottom: 10px;
+  text-shadow: 1px 1px 0 var(--pixel-text-shadow);
+}
+
+#demo-btn {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: var(--font-size-input);
+}
+
 /* ==================== 游戏界面 ==================== */
 #game-screen {
   flex-direction: column;
@@ -1054,6 +1074,60 @@ html, body {
   transform: translateX(2px);
 }
 
+/* 预设留言 */
+.preset-messages { padding: 12px; }
+.preset-hint { font-size: 18px; color: #8ab88a; margin-bottom: 12px; }
+.preset-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.preset-btn {
+  padding: 16px 20px;
+  font-size: 18px;
+  border-radius: 8px;
+  min-height: 56px;
+  flex: 1 1 calc(50% - 5px);
+  justify-content: center;
+}
+
+/* 一键帮助 */
+.one-click-help {
+  position: fixed;
+  bottom: 72px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 55;
+  padding: 8px 12px;
+  pointer-events: none;
+}
+.one-click-help .pixel-btn {
+  pointer-events: auto;
+}
+#btn-one-click-help {
+  padding: 16px 28px;
+  font-size: 20px;
+  min-height: 60px;
+}
+
+/* 赠送种子简化 */
+.gift-seed-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 12px;
+}
+.gift-hint {
+  font-size: var(--font-size-base);
+  color: #8ab88a;
+  text-align: center;
+}
+.gift-btn {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 20px;
+  min-height: 60px;
+}
+
 /* 留言弹窗 */
 .message-modal-content {
   width: 380px;
@@ -1157,6 +1231,288 @@ html, body {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+/* ==================== 长者版首页 ==================== */
+
+/* 长者版首页容器 */
+#senior-home-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 顶部简化信息栏 */
+.top-bar-simple {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.top-bar-simple .greeting {
+  font-size: 22px;
+  font-weight: bold;
+  color: var(--pixel-accent);
+}
+
+.top-bar-simple .status-summary {
+  display: flex;
+  gap: 16px;
+  font-size: 16px;
+  color: #8ab88a;
+}
+
+/* 三大入口 */
+.senior-home {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  justify-content: center;
+}
+
+.big-entry-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 24px;
+  font-size: 22px;
+  border-radius: 14px;
+  min-height: 100px;
+  width: 100%;
+  border: 3px solid var(--pixel-border);
+  gap: 4px;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.1s, box-shadow 0.1s;
+}
+
+.big-entry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+}
+
+.big-entry-btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 1px 1px 0 rgba(0,0,0,0.3);
+}
+
+.big-entry-btn.primary {
+  background-color: var(--pixel-accent);
+  color: var(--pixel-text-shadow);
+  text-shadow: none;
+}
+
+.big-entry-btn.primary:hover {
+  background-color: var(--pixel-accent-hover);
+}
+
+.big-entry-btn.secondary {
+  background-color: var(--pixel-panel-dark);
+  color: var(--pixel-text);
+}
+
+.big-entry-btn.secondary:hover {
+  background-color: var(--pixel-panel);
+}
+
+.big-entry-btn .big-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.big-entry-btn .big-label {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 4px 0;
+}
+
+.big-entry-btn .big-hint {
+  font-size: 15px;
+  color: var(--text-muted, #8ab88a);
+  opacity: 0.85;
+}
+
+/* 农场小预览 */
+.farm-preview {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px;
+  flex-shrink: 0;
+}
+
+.farm-preview h3 {
+  font-size: 16px;
+  color: var(--pixel-accent);
+  margin-bottom: 4px;
+  text-shadow: 1px 1px 0 var(--pixel-text-shadow);
+}
+
+.farm-preview canvas {
+  width: 120px;
+  height: 90px;
+}
+
+.farm-preview h3 {
+  font-size: 18px;
+  color: var(--pixel-accent);
+  margin-bottom: 8px;
+  text-shadow: 1px 1px 0 var(--pixel-text-shadow);
+}
+
+.farm-preview canvas {
+  background-color: #5a8f3c;
+  border: 3px solid var(--pixel-border);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 100%;
+}
+
+/* 快捷操作 */
+.quick-actions {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.quick-btn {
+  flex: 1;
+  padding: 16px 12px;
+  font-size: 20px;
+  min-width: 100px;
+  min-height: 56px;
+  border: 2px solid var(--pixel-border);
+}
+
+/* 更多按钮 */
+.more-btn {
+  font-size: 20px;
+  padding: 12px 28px;
+  min-height: 48px;
+  min-width: 120px;
+  flex-shrink: 0;
+  border: 2px solid var(--pixel-border);
+}
+
+/* 二级面板 */
+#more-panel {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 400px;
+  background-color: var(--pixel-panel);
+  border: 3px solid var(--pixel-border);
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+#more-panel.panel {
+  animation: panelSlideUp 0.2s ease-out;
+}
+
+@keyframes panelSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.panel-btn {
+  font-size: 18px;
+  padding: 16px 18px;
+  width: 100%;
+  text-align: left;
+  min-height: 52px;
+  border: 2px solid var(--pixel-border);
+  justify-content: flex-start;
+}
+
+/* 任务面板 */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-item {
+  font-size: 18px;
+  padding: 16px;
+  width: 100%;
+  text-align: left;
+  min-height: 52px;
+  border: 2px solid var(--pixel-border);
+  justify-content: flex-start;
+}
+
+/* 设置面板 */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setting-item {
+  font-size: 18px;
+  padding: 16px;
+  width: 100%;
+  text-align: left;
+  min-height: 52px;
+  border: 2px solid var(--pixel-border);
+  justify-content: flex-start;
+}
+
+.setting-item.active {
+  background-color: var(--pixel-accent);
+  color: var(--pixel-text-shadow);
+  text-shadow: none;
+}
+
+/* 游戏主屏幕覆盖默认居中 */
+#game-screen {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* 传统农场游戏界面 */
+#farm-game-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 6px;
+  background-color: var(--pixel-bg);
 }
 
 /* ==================== 响应式 ==================== */

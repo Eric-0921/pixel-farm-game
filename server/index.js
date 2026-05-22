@@ -6,6 +6,7 @@ const { initWebSocketServer } = require('./websocket');
 const { startCropGrowthJob } = require('./jobs/cropGrowthJob');
 const notifier = require('./notifications/notifier');
 const inAppProvider = require('./notifications/inAppProvider');
+const { seedDemoData } = require('./scripts/seed-demo');
 
 // 初始化数据库
 initDatabase();
@@ -23,11 +24,20 @@ initWebSocketServer(server);
 startCropGrowthJob();
 
 // 启动服务器
-server.listen(config.port, () => {
+server.listen(config.port, async () => {
   console.log(`\n🎮 像素农场游戏服务器已启动`);
   console.log(`📍 HTTP 服务: http://localhost:${config.port}`);
   console.log(`🔌 WebSocket: ws://localhost:${config.port}`);
   console.log(`📚 API 文档: http://localhost:${config.port}/api/health\n`);
+
+  // 开发/Demo 模式下自动创建演示数据
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      await seedDemoData();
+    } catch (err) {
+      console.error('❌ Demo 数据创建失败:', err);
+    }
+  }
 });
 
 module.exports = server;

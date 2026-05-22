@@ -128,6 +128,7 @@ class FarmGame {
     this.state.viewingFriendFarm = false;
     this.state.currentFriendId = null;
     this.ui.elements.btnBackMyFarm.classList.add('hidden');
+    this.ui.elements.oneClickHelp.classList.add('hidden');
     this.ui.elements.currentHint.textContent = '点击地块进行操作';
     // 恢复所有工具按钮
     document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('hidden'));
@@ -144,7 +145,16 @@ class FarmGame {
         this.state.viewingFriendFarm = true;
         this.state.currentFriendId = friendId;
         this.ui.elements.btnBackMyFarm.classList.remove('hidden');
-        this.ui.elements.currentHint.textContent = '👀 正在查看好友农场，选择浇水工具帮好友浇水';
+        this.ui.elements.oneClickHelp.classList.remove('hidden');
+        // 检查是否有需要浇水的作物
+        const needsWater = this.state.farmData.plots && this.state.farmData.plots.some(p =>
+          p.status === 'planted' && !p.is_watered
+        );
+        if (needsWater) {
+          this.ui.elements.currentHint.textContent = '点击地块帮好友浇水，或者点下面的按钮一键帮助';
+        } else {
+          this.ui.elements.currentHint.textContent = '今天已经帮过忙了，明天再来吧';
+        }
         // 隐藏种植和收获按钮
         document.querySelectorAll('.tool-btn').forEach(btn => {
           const tool = btn.dataset.tool;
@@ -370,6 +380,50 @@ class FarmGame {
     }
   }
 
+  async oneClickHelp() {
+    if (!this.state.viewingFriendFarm || !this.state.currentFriendId) {
+      this.ui.showToast('请先进入好友农场', 'error');
+      return;
+    }
+    const friendId = this.state.currentFriendId;
+    const farmData = this.state.farmData;
+    if (!farmData || !farmData.plots) {
+      this.ui.showToast('农场数据加载中，请稍后', 'error');
+      return;
+    }
+    // 找到最近需要浇水的作物
+    const targetPlot = farmData.plots.find(p => p.status === 'planted' && !p.is_watered);
+    if (!targetPlot) {
+      this.ui.showToast('今天已经帮过忙了，明天再来吧', 'info');
+      if (typeof voiceManager !== 'undefined') voiceManager.speak('今天已经帮过忙了，明天再来吧');
+      return;
+    }
+
+    try {
+      // 1. 浇水
+      const waterResult = await network.post(`/api/crops/water-friend/${friendId}/${targetPlot.plot_id}`);
+      if (waterResult.success) {
+        this.ui.showToast('帮好友浇水成功！双方获得经验', 'success');
+        if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('浇水');
+        this.spawnParticles(targetPlot);
+        // 2. 自动发送问候
+        const msgResult = await network.post('/api/friends/message', {
+          friendId,
+          content: '我来帮你浇水了'
+        });
+        if (msgResult.success) {
+          this.ui.showToast('已发送问候给好友', 'success');
+        }
+        // 3. 刷新好友农场
+        await this.loadFriendFarm(friendId);
+      } else {
+        this.ui.showToast(waterResult.message, 'error');
+      }
+    } catch (err) {
+      this.ui.showToast('一键帮助失败: ' + err.message, 'error');
+    }
+  }
+
   showPlotInfo(plot) {
     if (plot.status === 'empty') {
       this.ui.showToast('空地 - 可以种植作物', 'info');
@@ -451,6 +505,8 @@ class FarmGame {
 
   render() {
     if (!this.renderer) return;
+    // 如果 canvas 不可见（长者版首页模式下），跳过渲染以节省性能
+    if (this.canvas.offsetParent === null) return;
     this.renderer.renderFarm(this.state.farmData, this.state);
     if (this.state.particles.length > 0) {
       this.renderer.drawParticles(this.state.particles);

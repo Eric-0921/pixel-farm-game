@@ -192,4 +192,42 @@ router.get('/me', (req, res) => {
   }
 });
 
+/**
+ * POST /api/auth/demo-login
+ * Demo 模式快速登录（王奶奶账号）
+ */
+router.post('/demo-login', (req, res, next) => {
+  try {
+    const db = getDatabase();
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get('wang_demo');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Demo 账号未初始化' });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn }
+    );
+
+    res.json({
+      success: true,
+      message: 'Demo 登录成功',
+      data: {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          displayName: user.display_name,
+          coins: user.coins,
+          experience: user.experience
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Demo 登录失败:', err);
+    next(err);
+  }
+});
+
 module.exports = router;

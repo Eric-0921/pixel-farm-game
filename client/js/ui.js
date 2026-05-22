@@ -63,15 +63,55 @@ class UIManager {
       messageInput: document.getElementById('message-input'),
       messageSendBtn: document.getElementById('message-send-btn'),
       messageModalClose: document.getElementById('message-modal-close'),
+      presetBtns: document.querySelectorAll('.preset-btn'),
       giftModal: document.getElementById('gift-modal'),
       giftSeedList: document.getElementById('gift-seed-list'),
       giftModalClose: document.getElementById('gift-modal-close'),
+      giftSendWheatBtn: document.getElementById('gift-send-wheat-btn'),
+      giftHintText: document.getElementById('gift-hint-text'),
+      oneClickHelp: document.getElementById('one-click-help'),
+      btnOneClickHelp: document.getElementById('btn-one-click-help'),
       btnBackMyFarm: document.getElementById('btn-back-my-farm'),
+      demoBtn: document.getElementById('demo-btn'),
       toast: document.getElementById('notification-toast'),
       toastMessage: document.getElementById('toast-message'),
       plotTooltip: document.getElementById('plot-tooltip'),
       tooltipTitle: document.getElementById('tooltip-title'),
-      tooltipContent: document.getElementById('tooltip-content')
+      tooltipContent: document.getElementById('tooltip-content'),
+      // 长者版首页元素
+      seniorHomeView: document.getElementById('senior-home-view'),
+      farmGameView: document.getElementById('farm-game-view'),
+      greetingText: document.getElementById('greeting-text'),
+      statusCrops: document.getElementById('status-crops'),
+      statusFriends: document.getElementById('status-friends'),
+      hintMyFarm: document.getElementById('hint-my-farm'),
+      hintVisitFriends: document.getElementById('hint-visit-friends'),
+      hintTodayTasks: document.getElementById('hint-today-tasks'),
+      previewCanvas: document.getElementById('preview-canvas'),
+      btnMyFarm: document.getElementById('btn-my-farm'),
+      btnVisitFriends: document.getElementById('btn-visit-friends'),
+      btnTodayTasks: document.getElementById('btn-today-tasks'),
+      btnQuickWater: document.getElementById('btn-quick-water'),
+      btnQuickHarvest: document.getElementById('btn-quick-harvest'),
+      btnQuickMessage: document.getElementById('btn-quick-message'),
+      btnMore: document.getElementById('btn-more'),
+      morePanel: document.getElementById('more-panel'),
+      btnCheckinPanel: document.getElementById('btn-checkin-panel'),
+      btnAchievementsPanel: document.getElementById('btn-achievements-panel'),
+      btnNotificationsPanel: document.getElementById('btn-notifications-panel'),
+      panelNotifBadge: document.getElementById('panel-notif-badge'),
+      btnSettingsPanel: document.getElementById('btn-settings-panel'),
+      btnLogoutPanel: document.getElementById('btn-logout-panel'),
+      tasksModal: document.getElementById('tasks-modal'),
+      taskCheckin: document.getElementById('task-checkin'),
+      taskWater: document.getElementById('task-water'),
+      taskHarvest: document.getElementById('task-harvest'),
+      taskMessage: document.getElementById('task-message'),
+      settingsModal: document.getElementById('settings-modal'),
+      settingFontToggle: document.getElementById('setting-font-toggle'),
+      settingContrastToggle: document.getElementById('setting-contrast-toggle'),
+      settingVoiceToggle: document.getElementById('setting-voice-toggle'),
+      settingPushToggle: document.getElementById('setting-push-toggle')
     };
     this.currentTool = 'cursor';
     this.selectedSeed = null;
@@ -81,7 +121,9 @@ class UIManager {
     this.notifications = [];
     this.isSubmitting = false;
     this.currentMessageFriendId = null;
+    this.currentMessageFriendName = '';
     this.currentGiftFriendId = null;
+    this.currentGiftFriendName = '';
     this.friendListData = [];
     this.pendingRequestsData = [];
     this.initListeners();
@@ -95,6 +137,7 @@ class UIManager {
       btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
     });
     this.elements.loginBtn.addEventListener('click', () => this.handleLogin());
+    this.elements.demoBtn?.addEventListener('click', () => this.handleDemoLogin());
     this.elements.loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleLogin();
@@ -162,9 +205,26 @@ class UIManager {
         this.handleSendMessage(this.currentMessageFriendId);
       }
     });
+    // 预设留言按钮
+    this.elements.presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const message = btn.dataset.message;
+        if (message && this.currentMessageFriendId) {
+          this.handleSendPresetMessage(this.currentMessageFriendId, message);
+        }
+      });
+    });
 
     // 赠送种子弹窗
     this.elements.giftModalClose.addEventListener('click', () => this.hideGiftModal());
+    this.elements.giftSendWheatBtn.addEventListener('click', () => {
+      if (this.currentGiftFriendId) this.handleSendWheatGift(this.currentGiftFriendId);
+    });
+
+    // 一键帮助
+    this.elements.btnOneClickHelp.addEventListener('click', () => {
+      if (window.game) window.game.oneClickHelp();
+    });
 
     // 返回我的农场
     this.elements.btnBackMyFarm.addEventListener('click', () => {
@@ -181,6 +241,79 @@ class UIManager {
     setupModalClose('friend-modal');
     setupModalClose('checkin-modal');
     setupModalClose('achievement-modal');
+
+    // 长者版首页入口
+    this.elements.btnMyFarm.addEventListener('click', () => this.enterFarmGame());
+    this.elements.btnVisitFriends.addEventListener('click', () => this.showFriendModal());
+    this.elements.btnTodayTasks.addEventListener('click', () => this.showTasksModal());
+
+    // 快捷操作
+    this.elements.btnQuickWater.addEventListener('click', () => this.handleQuickWater());
+    this.elements.btnQuickHarvest.addEventListener('click', () => this.handleQuickHarvest());
+    this.elements.btnQuickMessage.addEventListener('click', () => this.handleQuickMessage());
+
+    // 更多面板
+    this.elements.btnMore.addEventListener('click', () => this.toggleMorePanel());
+    this.elements.btnCheckinPanel.addEventListener('click', () => {
+      this.hideMorePanel();
+      this.showCheckinModal();
+    });
+    this.elements.btnAchievementsPanel.addEventListener('click', () => {
+      this.hideMorePanel();
+      this.showAchievementModal();
+    });
+    this.elements.btnNotificationsPanel.addEventListener('click', () => {
+      this.hideMorePanel();
+      this.showNotifModal();
+    });
+    this.elements.btnSettingsPanel.addEventListener('click', () => {
+      this.hideMorePanel();
+      this.showSettingsModal();
+    });
+    this.elements.btnLogoutPanel.addEventListener('click', () => {
+      this.hideMorePanel();
+      this.handleLogout();
+    });
+
+    // 任务面板
+    this.elements.taskCheckin.addEventListener('click', () => {
+      this.hideTasksModal();
+      this.showCheckinModal();
+    });
+    this.elements.taskWater.addEventListener('click', () => {
+      this.hideTasksModal();
+      this.handleQuickWater();
+    });
+    this.elements.taskHarvest.addEventListener('click', () => {
+      this.hideTasksModal();
+      this.handleQuickHarvest();
+    });
+    this.elements.taskMessage.addEventListener('click', () => {
+      this.hideTasksModal();
+      this.showFriendModal();
+    });
+
+    // 设置面板
+    this.elements.settingFontToggle.addEventListener('click', () => {
+      this.toggleFontSize();
+      this.updateSettingsUI();
+    });
+    this.elements.settingContrastToggle.addEventListener('click', () => {
+      this.toggleHighContrast();
+      this.updateSettingsUI();
+    });
+    this.elements.settingVoiceToggle.addEventListener('click', () => {
+      this.toggleVoice();
+      this.updateSettingsUI();
+    });
+    this.elements.settingPushToggle.addEventListener('click', () => {
+      this.handlePushToggle();
+      this.updateSettingsUI();
+    });
+
+    // 弹窗关闭
+    setupModalClose('tasks-modal');
+    setupModalClose('settings-modal');
   }
 
   initKeyboard() {
@@ -242,6 +375,28 @@ class UIManager {
       this.isSubmitting = false;
       this.elements.loginBtn.disabled = false;
       this.elements.loginBtn.textContent = '开始游戏';
+    }
+  }
+
+  async handleDemoLogin() {
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+    this.elements.demoBtn.disabled = true;
+    this.elements.demoBtn.textContent = '进入中...';
+    try {
+      const result = await network.post('/api/auth/demo-login', {}, false);
+      if (result.success) {
+        this.saveAuth(result.data);
+        this.showGameScreen();
+      } else {
+        this.showAuthMessage(result.message, 'error');
+      }
+    } catch (err) {
+      this.showAuthMessage('快速体验失败: ' + err.message, 'error');
+    } finally {
+      this.isSubmitting = false;
+      this.elements.demoBtn.disabled = false;
+      this.elements.demoBtn.textContent = '👵 我是王奶奶，直接开始';
     }
   }
 
@@ -307,6 +462,7 @@ class UIManager {
     this.screens.game.classList.remove('hidden');
     network.connectWebSocket();
     if (window.game) window.game.init();
+    this.showSeniorHome();
   }
 
   showAuthMessage(message, type) {
@@ -321,6 +477,15 @@ class UIManager {
     this.elements.playerExp.textContent = user.experience || 0;
     const level = Math.floor((user.experience || 0) / 100) + 1;
     this.elements.playerLevel.textContent = level;
+
+    // 更新问候语
+    const hour = new Date().getHours();
+    let greeting = '你好';
+    if (hour < 12) greeting = '早上好';
+    else if (hour < 18) greeting = '下午好';
+    else greeting = '晚上好';
+    const name = user.displayName || user.username || '玩家';
+    this.elements.greetingText.textContent = `${greeting}，${name} 🌱`;
   }
 
   selectTool(tool) {
@@ -328,6 +493,17 @@ class UIManager {
     this.elements.toolBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tool === tool);
     });
+    // 好友农场模式下的提示
+    if (window.game && window.game.state.viewingFriendFarm) {
+      const needsWater = window.game.state.farmData && window.game.state.farmData.plots &&
+        window.game.state.farmData.plots.some(p => p.status === 'planted' && !p.is_watered);
+      if (needsWater) {
+        this.elements.currentHint.textContent = '点击地块帮好友浇水，或者点下面的按钮一键帮助';
+      } else {
+        this.elements.currentHint.textContent = '今天已经帮过忙了，明天再来吧';
+      }
+      return;
+    }
     const hints = {
       cursor: '点击地块查看详情 (按1)',
       plant: '选择种子后点击空地块种植 (按2)',
@@ -390,6 +566,9 @@ class UIManager {
     this.hideGiftModal();
     this.hideCheckinModal();
     this.hideAchievementModal();
+    this.hideTasksModal();
+    this.hideSettingsModal();
+    this.hideMorePanel();
   }
 
   renderSeedList() {
@@ -650,7 +829,7 @@ class UIManager {
       const btnGift = document.createElement('button');
       btnGift.className = 'pixel-btn small';
       btnGift.textContent = '🎁 赠种';
-      btnGift.addEventListener('click', () => this.showGiftModal(f.id));
+      btnGift.addEventListener('click', () => this.showGiftModal(f.id, f.display_name || f.username));
 
       const btnRemove = document.createElement('button');
       btnRemove.className = 'pixel-btn small danger';
@@ -856,6 +1035,7 @@ class UIManager {
 
   async showMessageModal(friendId, friendName) {
     this.currentMessageFriendId = friendId;
+    this.currentMessageFriendName = friendName;
     const title = document.getElementById('message-modal-title');
     title.textContent = '💬 与 ' + friendName + ' 的留言';
     this.elements.messageModal.classList.remove('hidden');
@@ -921,11 +1101,28 @@ class UIManager {
     }
   }
 
-  async showGiftModal(friendId) {
+  async handleSendPresetMessage(friendId, content) {
+    try {
+      const result = await network.post('/api/friends/message', { friendId, content });
+      if (result.success) {
+        const name = this.currentMessageFriendName || '好友';
+        this.showToast('问候已发送给' + name, 'success');
+        if (typeof voiceManager !== 'undefined') voiceManager.speak('问候已发送给' + name);
+        await this.loadMessages(friendId);
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('发送留言失败: ' + err.message, 'error');
+    }
+  }
+
+  async showGiftModal(friendId, friendName) {
     this.currentGiftFriendId = friendId;
+    this.currentGiftFriendName = friendName || '好友';
     this.elements.giftModal.classList.remove('hidden');
-    const list = this.elements.giftSeedList;
-    list.innerHTML = '';
+    const hint = document.getElementById('gift-hint-text');
+    if (hint) hint.textContent = '送' + this.currentGiftFriendName + '一包小麦种子';
 
     if (!this.cropTypes || this.cropTypes.length === 0) {
       try {
@@ -937,39 +1134,18 @@ class UIManager {
         return;
       }
     }
+  }
 
-    this.cropTypes.forEach(crop => {
-      const item = document.createElement('div');
-      item.className = 'seed-item';
-
-      const seedIcon = document.createElement('div');
-      seedIcon.className = 'seed-icon';
-      seedIcon.style.backgroundColor = crop.color;
-      item.appendChild(seedIcon);
-
-      const seedInfo = document.createElement('div');
-      seedInfo.className = 'seed-info';
-      const seedName = document.createElement('div');
-      seedName.className = 'seed-name';
-      seedName.textContent = crop.name;
-      const seedDesc = document.createElement('div');
-      seedDesc.className = 'seed-desc';
-      seedDesc.textContent = crop.description;
-      seedInfo.appendChild(seedName);
-      seedInfo.appendChild(seedDesc);
-      item.appendChild(seedInfo);
-
-      const seedMeta = document.createElement('div');
-      seedMeta.className = 'seed-meta';
-      const seedPrice = document.createElement('div');
-      seedPrice.className = 'seed-price';
-      seedPrice.textContent = `${crop.buy_price}💰`;
-      seedMeta.appendChild(seedPrice);
-      item.appendChild(seedMeta);
-
-      item.addEventListener('click', () => this.handleSendGift(friendId, crop.id, crop.name));
-      list.appendChild(item);
-    });
+  async handleSendWheatGift(friendId) {
+    let wheatCrop = null;
+    if (this.cropTypes && this.cropTypes.length > 0) {
+      wheatCrop = this.cropTypes.find(c => c.name === '小麦') || this.cropTypes[0];
+    }
+    if (!wheatCrop) {
+      this.showToast('暂无可赠送的种子', 'error');
+      return;
+    }
+    await this.handleSendGift(friendId, wheatCrop.id, wheatCrop.name);
   }
 
   async handleSendGift(friendId, cropTypeId, cropName) {
@@ -1180,13 +1356,18 @@ class UIManager {
   /* ==================== 无障碍功能（老年人专属） ==================== */
 
   initAccessibility() {
-    // 大字体
-    const isLargeFont = localStorage.getItem('farm_large_font') === 'true';
-    if (isLargeFont) document.body.classList.add('large-font');
+    // 默认大字体（长者版首页默认）
+    const fontSetting = localStorage.getItem('farm_large_font');
+    if (fontSetting === null) {
+      document.body.classList.add('large-font');
+      localStorage.setItem('farm_large_font', 'true');
+    } else if (fontSetting === 'true') {
+      document.body.classList.add('large-font');
+    }
     // 高对比度
     const isHighContrast = localStorage.getItem('farm_high_contrast') === 'true';
     if (isHighContrast) document.body.classList.add('high-contrast');
-    // 语音播报
+    // 语音播报默认关闭
     this.updateFontToggleUI();
     this.updateContrastToggleUI();
     this.updateVoiceToggleUI();
@@ -1320,12 +1501,164 @@ class UIManager {
 
   showNotifBadge(count) {
     const badge = this.elements.notifBadge;
+    const panelBadge = this.elements.panelNotifBadge;
+    const text = count > 99 ? '99+' : count;
     if (count > 0) {
-      badge.textContent = count > 99 ? '99+' : count;
+      badge.textContent = text;
       badge.classList.remove('hidden');
+      panelBadge.textContent = text;
+      panelBadge.classList.remove('hidden');
     } else {
       badge.classList.add('hidden');
+      panelBadge.classList.add('hidden');
     }
+  }
+
+  /* ==================== 长者版首页 ==================== */
+
+  showSeniorHome() {
+    this.elements.seniorHomeView.classList.remove('hidden');
+    this.elements.farmGameView.classList.add('hidden');
+    this.updateHomeStatus();
+  }
+
+  enterFarmGame() {
+    this.elements.seniorHomeView.classList.add('hidden');
+    this.elements.farmGameView.classList.remove('hidden');
+    if (window.game) {
+      window.game.fitCanvas();
+      if (!window.game.animationId) {
+        window.game.startGameLoop();
+      }
+    }
+  }
+
+  updateHomeStatus() {
+    if (!window.game || !window.game.state.farmData) return;
+    const plots = window.game.state.farmData.plots || [];
+    const growing = plots.filter(p => p.status === 'planted').length;
+    const mature = plots.filter(p => p.status === 'planted' && (p.is_mature || (p.growth_progress || 0) >= 1.0)).length;
+
+    this.elements.statusCrops.textContent = `🌾 ${growing}株作物在生长`;
+    if (mature > 0) {
+      this.elements.hintMyFarm.textContent = `有${mature}株作物已成熟`;
+    } else {
+      this.elements.hintMyFarm.textContent = growing > 0 ? '作物正在生长中' : '去种植新作物吧';
+    }
+  }
+
+  toggleMorePanel() {
+    this.elements.morePanel.classList.toggle('hidden');
+  }
+
+  hideMorePanel() {
+    this.elements.morePanel.classList.add('hidden');
+  }
+
+  showTasksModal() {
+    this.elements.tasksModal.classList.remove('hidden');
+  }
+
+  hideTasksModal() {
+    this.elements.tasksModal.classList.add('hidden');
+  }
+
+  showSettingsModal() {
+    this.updateSettingsUI();
+    this.elements.settingsModal.classList.remove('hidden');
+  }
+
+  hideSettingsModal() {
+    this.elements.settingsModal.classList.add('hidden');
+  }
+
+  updateSettingsUI() {
+    const isLarge = document.body.classList.contains('large-font');
+    this.elements.settingFontToggle.textContent = isLarge ? '🔤 大字体模式 ✓' : '🔤 大字体模式';
+    this.elements.settingFontToggle.classList.toggle('active', isLarge);
+
+    const isHigh = document.body.classList.contains('high-contrast');
+    this.elements.settingContrastToggle.textContent = isHigh ? '👁 高对比度模式 ✓' : '👁 高对比度模式';
+    this.elements.settingContrastToggle.classList.toggle('active', isHigh);
+
+    if (typeof voiceManager !== 'undefined') {
+      const voiceEnabled = voiceManager.enabled;
+      this.elements.settingVoiceToggle.textContent = voiceEnabled ? '🔊 语音播报 ✓' : '🔊 语音播报';
+      this.elements.settingVoiceToggle.classList.toggle('active', voiceEnabled);
+      this.elements.settingVoiceToggle.disabled = false;
+    } else {
+      this.elements.settingVoiceToggle.textContent = '🔊 语音播报（不可用）';
+      this.elements.settingVoiceToggle.classList.remove('active');
+      this.elements.settingVoiceToggle.disabled = true;
+    }
+
+    if (this.pushStatus === 'granted') {
+      this.elements.settingPushToggle.textContent = '🔔 推送通知 ✓';
+      this.elements.settingPushToggle.classList.add('active');
+      this.elements.settingPushToggle.disabled = false;
+    } else if (this.pushStatus === 'unsupported' || this.pushStatus === 'denied') {
+      this.elements.settingPushToggle.textContent = '🔔 推送通知（不可用）';
+      this.elements.settingPushToggle.classList.remove('active');
+      this.elements.settingPushToggle.disabled = true;
+    } else {
+      this.elements.settingPushToggle.textContent = '🔔 推送通知';
+      this.elements.settingPushToggle.classList.remove('active');
+      this.elements.settingPushToggle.disabled = false;
+    }
+  }
+
+  async handleQuickWater() {
+    if (!window.game || !window.game.state.farmData || !window.game.state.farmData.plots) {
+      this.showToast('暂无作物可浇水', 'info');
+      return;
+    }
+    const plots = window.game.state.farmData.plots;
+    const waterable = plots.filter(p => p.status === 'planted' && !p.is_watered);
+    if (waterable.length === 0) {
+      this.showToast('没有需要浇水的作物', 'info');
+      return;
+    }
+    try {
+      const result = await network.post('/api/farm/water', { plotId: waterable[0].plot_id });
+      if (result.success) {
+        this.showToast('浇水成功！生长速度提升', 'success');
+        await window.game.refreshFarm();
+        this.updateHomeStatus();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('浇水失败', 'error');
+    }
+  }
+
+  async handleQuickHarvest() {
+    if (!window.game || !window.game.state.farmData || !window.game.state.farmData.plots) {
+      this.showToast('暂无作物可收获', 'info');
+      return;
+    }
+    const plots = window.game.state.farmData.plots;
+    const harvestable = plots.filter(p => p.status === 'planted' && (p.is_mature || (p.growth_progress || 0) >= 1.0));
+    if (harvestable.length === 0) {
+      this.showToast('没有成熟的作物', 'info');
+      return;
+    }
+    try {
+      const result = await network.post('/api/farm/harvest', { plotId: harvestable[0].plot_id });
+      if (result.success) {
+        this.showToast(`收获成功！获得 ${result.data.earned} 金币`, 'success');
+        await window.game.refreshFarm();
+        this.updateHomeStatus();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    } catch (err) {
+      this.showToast('收获失败', 'error');
+    }
+  }
+
+  handleQuickMessage() {
+    this.showFriendModal();
   }
 }
 

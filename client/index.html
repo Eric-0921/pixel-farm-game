@@ -30,85 +30,162 @@
         <button type="submit" id="register-btn" class="pixel-btn primary">创建农场</button>
       </form>
 
+      <div class="demo-entry">
+        <p class="demo-hint">想先体验一下？</p>
+        <button id="demo-btn" class="pixel-btn primary large">
+          👵 我是王奶奶，直接开始
+        </button>
+      </div>
+
       <p id="auth-message" class="auth-message" role="status" aria-live="polite"></p>
     </div>
   </div>
 
   <!-- 游戏主界面 -->
   <div id="game-screen" class="screen hidden" role="main" aria-label="像素农场游戏">
-    <!-- 顶部信息栏 -->
-    <header class="top-bar pixel-panel" role="banner">
-      <div class="user-info">
-        <span class="pixel-text user-name">👤 <span id="player-name">玩家</span></span>
-        <span class="pixel-text user-coins">💰 <span id="player-coins">0</span></span>
-        <span class="pixel-text user-exp">⭐ <span id="player-exp">0</span></span>
-        <span class="pixel-text user-level">🏆 Lv.<span id="player-level">1</span></span>
-      </div>
-      <div class="game-actions">
-        <div class="selected-seed-display" id="selected-seed-display" aria-label="已选种子">
-          <span class="seed-label">未选择种子</span>
+    <!-- ===== 长者版首页 ===== -->
+    <div id="senior-home-view">
+      <!-- 顶部简化信息栏 -->
+      <header class="top-bar-simple pixel-panel">
+        <div class="greeting">
+          <span id="greeting-text">早上好，玩家 🌱</span>
         </div>
-        <button id="btn-seeds" class="pixel-btn small" title="选择种子" aria-label="选择种子">🌱 种子</button>
-        <button id="btn-font-toggle" class="pixel-btn small" title="大字体模式" aria-label="大字体模式">🔤 大字</button>
-        <button id="btn-contrast-toggle" class="pixel-btn small" title="高对比度模式" aria-label="高对比度模式">👁 对比</button>
-        <button id="btn-voice-toggle" class="pixel-btn small" title="语音播报" aria-label="语音播报">🔊 语音</button>
-        <button id="btn-push-toggle" class="pixel-btn small" title="推送通知" aria-label="推送通知开关">
-          🔔 推送通知
-        </button>
-        <button id="btn-notifications" class="pixel-btn small" title="通知" aria-label="查看通知">
-          📩 <span id="notif-badge" class="badge hidden" aria-label="未读通知数量">0</span>
-        </button>
-        <button id="btn-checkin" class="pixel-btn small" title="每日签到" aria-label="每日签到">📅 签到</button>
-        <button id="btn-achievements" class="pixel-btn small" title="成就" aria-label="成就">🏆 成就</button>
-        <button id="btn-friends" class="pixel-btn small" title="好友" aria-label="好友">👥 好友</button>
-        <button id="btn-refresh" class="pixel-btn small" title="刷新农场" aria-label="刷新农场">🔄</button>
-        <button id="btn-logout" class="pixel-btn small" title="退出登录" aria-label="退出登录">退出</button>
-      </div>
-    </header>
+        <div class="status-summary">
+          <span id="status-crops">🌾 0株作物在生长</span>
+          <span id="status-friends">👥 0位好友互动</span>
+        </div>
+      </header>
 
-    <!-- 游戏画布 -->
-    <div class="game-container">
-      <canvas id="game-canvas"></canvas>
-      <div id="game-loading" class="game-loading hidden">
-        <span class="loading-text">加载中...</span>
-      </div>
-      <!-- 地块信息悬浮提示 -->
-      <div id="plot-tooltip" class="plot-tooltip hidden">
-        <div class="tooltip-title" id="tooltip-title"></div>
-        <div class="tooltip-content" id="tooltip-content"></div>
+      <!-- 三大入口 -->
+      <main class="senior-home">
+        <button class="big-entry-btn primary pixel-btn" id="btn-my-farm">
+          <span class="big-icon">🌾</span>
+          <span class="big-label">照顾我的花园</span>
+          <span class="big-hint" id="hint-my-farm">查看农场详情</span>
+        </button>
+
+        <button class="big-entry-btn secondary pixel-btn" id="btn-visit-friends">
+          <span class="big-icon">👥</span>
+          <span class="big-label">去看看好友</span>
+          <span class="big-hint" id="hint-visit-friends">与好友互动</span>
+        </button>
+
+        <button class="big-entry-btn secondary pixel-btn" id="btn-today-tasks">
+          <span class="big-icon">📋</span>
+          <span class="big-label">今日任务</span>
+          <span class="big-hint" id="hint-today-tasks">完成每日任务</span>
+        </button>
+      </main>
+
+      <!-- 农场小预览 -->
+      <section class="farm-preview">
+        <h3>我的花园</h3>
+        <canvas id="preview-canvas" width="160" height="120"></canvas>
+      </section>
+
+      <!-- 底部快捷操作 -->
+      <nav class="quick-actions">
+        <button class="quick-btn pixel-btn" id="btn-quick-water">💧 浇水</button>
+        <button class="quick-btn pixel-btn" id="btn-quick-harvest">✂️ 收成</button>
+        <button class="quick-btn pixel-btn" id="btn-quick-message">💬 问候</button>
+      </nav>
+
+      <!-- 更多按钮（展开二级面板） -->
+      <button class="more-btn pixel-btn" id="btn-more">⋮ 更多</button>
+
+      <!-- 二级面板（默认隐藏） -->
+      <div id="more-panel" class="panel hidden">
+        <button class="pixel-btn panel-btn" id="btn-checkin-panel">📅 签到</button>
+        <button class="pixel-btn panel-btn" id="btn-achievements-panel">🏆 成就</button>
+        <button class="pixel-btn panel-btn" id="btn-notifications-panel">🔔 通知 <span id="panel-notif-badge" class="badge hidden">0</span></button>
+        <button class="pixel-btn panel-btn" id="btn-settings-panel">⚙️ 设置</button>
+        <button class="pixel-btn panel-btn" id="btn-logout-panel">🚪 退出</button>
       </div>
     </div>
 
-    <!-- 返回我的农场按钮 -->
-    <button id="btn-back-my-farm" class="pixel-btn small hidden back-farm-btn" title="返回我的农场">🏠 返回我的农场</button>
+    <!-- ===== 传统农场游戏界面 ===== -->
+    <div id="farm-game-view" class="hidden">
+      <!-- 顶部信息栏 -->
+      <header class="top-bar pixel-panel" role="banner">
+        <div class="user-info">
+          <span class="pixel-text user-name">👤 <span id="player-name">玩家</span></span>
+          <span class="pixel-text user-coins">💰 <span id="player-coins">0</span></span>
+          <span class="pixel-text user-exp">⭐ <span id="player-exp">0</span></span>
+          <span class="pixel-text user-level">🏆 Lv.<span id="player-level">1</span></span>
+        </div>
+        <div class="game-actions">
+          <div class="selected-seed-display" id="selected-seed-display" aria-label="已选种子">
+            <span class="seed-label">未选择种子</span>
+          </div>
+          <button id="btn-seeds" class="pixel-btn small" title="选择种子" aria-label="选择种子">🌱 种子</button>
+          <button id="btn-font-toggle" class="pixel-btn small" title="大字体模式" aria-label="大字体模式">🔤 大字</button>
+          <button id="btn-contrast-toggle" class="pixel-btn small" title="高对比度模式" aria-label="高对比度模式">👁 对比</button>
+          <button id="btn-voice-toggle" class="pixel-btn small" title="语音播报" aria-label="语音播报">🔊 语音</button>
+          <button id="btn-push-toggle" class="pixel-btn small" title="推送通知" aria-label="推送通知开关">
+            🔔 推送通知
+          </button>
+          <button id="btn-notifications" class="pixel-btn small" title="通知" aria-label="查看通知">
+            📩 <span id="notif-badge" class="badge hidden" aria-label="未读通知数量">0</span>
+          </button>
+          <button id="btn-checkin" class="pixel-btn small" title="每日签到" aria-label="每日签到">📅 签到</button>
+          <button id="btn-achievements" class="pixel-btn small" title="成就" aria-label="成就">🏆 成就</button>
+          <button id="btn-friends" class="pixel-btn small" title="好友" aria-label="好友">👥 好友</button>
+          <button id="btn-refresh" class="pixel-btn small" title="刷新农场" aria-label="刷新农场">🔄</button>
+          <button id="btn-logout" class="pixel-btn small" title="退出登录" aria-label="退出登录">退出</button>
+        </div>
+      </header>
 
-    <!-- 底部工具栏 -->
-    <nav class="bottom-bar pixel-panel" role="navigation" aria-label="游戏工具栏">
-      <div class="tool-selector">
-        <button class="pixel-btn tool-btn active" data-tool="cursor" title="查看 (1)">
-          <span class="tool-icon">👆</span>
-          <span class="tool-key">1</span>
-        </button>
-        <button class="pixel-btn tool-btn" data-tool="plant" title="种植 (2)">
-          <span class="tool-icon">🌱</span>
-          <span class="tool-key">2</span>
-        </button>
-        <button class="pixel-btn tool-btn" data-tool="water" title="浇水 (3)">
-          <span class="tool-icon">💧</span>
-          <span class="tool-key">3</span>
-        </button>
-        <button class="pixel-btn tool-btn" data-tool="harvest" title="收获 (4)">
-          <span class="tool-icon">✂️</span>
-          <span class="tool-key">4</span>
+      <!-- 游戏画布 -->
+      <div class="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="game-loading" class="game-loading hidden">
+          <span class="loading-text">加载中...</span>
+        </div>
+        <!-- 地块信息悬浮提示 -->
+        <div id="plot-tooltip" class="plot-tooltip hidden">
+          <div class="tooltip-title" id="tooltip-title"></div>
+          <div class="tooltip-content" id="tooltip-content"></div>
+        </div>
+      </div>
+
+      <!-- 返回我的农场按钮 -->
+      <button id="btn-back-my-farm" class="pixel-btn small hidden back-farm-btn" title="返回我的农场">🏠 返回我的农场</button>
+
+      <!-- 一键帮助按钮（仅好友农场显示） -->
+      <div id="one-click-help" class="one-click-help hidden">
+        <button class="pixel-btn primary large" id="btn-one-click-help">
+          💧 帮好友浇水 + 💬 问候
         </button>
       </div>
-      <div class="game-hint">
-        <span id="current-hint" class="pixel-text hint-text">点击地块进行操作</span>
-      </div>
-      <div class="keyboard-hint">
-        <span class="pixel-text hint-text">按 1-4 切换工具</span>
-      </div>
-    </nav>
+
+      <!-- 底部工具栏 -->
+      <nav class="bottom-bar pixel-panel" role="navigation" aria-label="游戏工具栏">
+        <div class="tool-selector">
+          <button class="pixel-btn tool-btn active" data-tool="cursor" title="查看 (1)">
+            <span class="tool-icon">👆</span>
+            <span class="tool-key">1</span>
+          </button>
+          <button class="pixel-btn tool-btn" data-tool="plant" title="种植 (2)">
+            <span class="tool-icon">🌱</span>
+            <span class="tool-key">2</span>
+          </button>
+          <button class="pixel-btn tool-btn" data-tool="water" title="浇水 (3)">
+            <span class="tool-icon">💧</span>
+            <span class="tool-key">3</span>
+          </button>
+          <button class="pixel-btn tool-btn" data-tool="harvest" title="收获 (4)">
+            <span class="tool-icon">✂️</span>
+            <span class="tool-key">4</span>
+          </button>
+        </div>
+        <div class="game-hint">
+          <span id="current-hint" class="pixel-text hint-text">点击地块进行操作</span>
+        </div>
+        <div class="keyboard-hint">
+          <span class="pixel-text hint-text">按 1-4 切换工具</span>
+        </div>
+      </nav>
+    </div>
   </div>
 
   <!-- 种子选择弹窗 -->
@@ -187,8 +264,23 @@
       </div>
       <div class="modal-body">
         <div id="message-list" class="message-list"></div>
+
+        <!-- 预设留言按钮 -->
+        <div class="preset-messages">
+          <p class="preset-hint">点一下就能发送问候：</p>
+          <div class="preset-buttons">
+            <button class="preset-btn pixel-btn" data-message="我来帮你浇水了">💧 我来帮你浇水了</button>
+            <button class="preset-btn pixel-btn" data-message="今天天气真好">☀️ 今天天气真好</button>
+            <button class="preset-btn pixel-btn" data-message="一起收成吧">🌾 一起收成吧</button>
+            <button class="preset-btn pixel-btn" data-message="记得多休息">😊 记得多休息</button>
+            <button class="preset-btn pixel-btn" data-message="你的花长得真好">🌸 你的花长得真好</button>
+            <button class="preset-btn pixel-btn" data-message="明天见">👋 明天见</button>
+          </div>
+        </div>
+
+        <!-- 手动输入（可选） -->
         <div class="message-input-row">
-          <input type="text" id="message-input" class="pixel-input message-input" placeholder="输入留言..." maxlength="200" aria-label="留言内容">
+          <input type="text" id="message-input" class="pixel-input message-input" placeholder="或者自己写一句..." maxlength="200" aria-label="留言内容">
           <button id="message-send-btn" class="pixel-btn small primary">发送</button>
         </div>
       </div>
@@ -244,7 +336,50 @@
         <button class="pixel-btn close-btn" id="gift-modal-close" aria-label="关闭赠送弹窗">✕</button>
       </div>
       <div class="modal-body">
-        <div id="gift-seed-list" class="seed-list"></div>
+        <div id="gift-seed-content" class="gift-seed-content">
+          <p class="gift-hint" id="gift-hint-text">送好友一包小麦种子</p>
+          <button class="pixel-btn primary large gift-btn" id="gift-send-wheat-btn">
+            🌾 送一包小麦种子
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务面板弹窗 -->
+  <div id="tasks-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="今日任务">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text">📋 今日任务</h2>
+        <button class="pixel-btn close-btn" data-close="tasks" aria-label="关闭任务面板">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="tasks-list" class="tasks-list">
+          <button class="pixel-btn task-item" id="task-checkin">📅 每日签到</button>
+          <button class="pixel-btn task-item" id="task-water">💧 给作物浇水</button>
+          <button class="pixel-btn task-item" id="task-harvest">✂️ 收获成熟作物</button>
+          <button class="pixel-btn task-item" id="task-message">💬 给好友留言</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="设置">
+    <div class="modal-overlay"></div>
+    <div class="modal-content pixel-panel">
+      <div class="modal-header">
+        <h2 class="pixel-text">⚙️ 设置</h2>
+        <button class="pixel-btn close-btn" data-close="settings" aria-label="关闭设置">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-list">
+          <button class="pixel-btn setting-item" id="setting-font-toggle">🔤 大字体模式</button>
+          <button class="pixel-btn setting-item" id="setting-contrast-toggle">👁 高对比度模式</button>
+          <button class="pixel-btn setting-item" id="setting-voice-toggle">🔊 语音播报</button>
+          <button class="pixel-btn setting-item" id="setting-push-toggle">🔔 推送通知</button>
+        </div>
       </div>
     </div>
   </div>
