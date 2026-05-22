@@ -34,6 +34,8 @@ class FarmGame {
     this.wsCropMatureHandler = null;
     this.wsNotificationHandler = null;
     this.wsAchievementHandler = null;
+    this.actionInProgress = false;
+    this.weatherTimer = null;
   }
 
   async init() {
@@ -296,6 +298,12 @@ class FarmGame {
     const tool = this.ui.currentTool;
     this.state.selectedPlot = plot;
     
+    // Phase 6: 操作并发锁
+    if (this.actionInProgress) {
+      this.ui.showToast('稍等，正在干活呢...', 'info');
+      return;
+    }
+    
     // Phase 6: 如果小人正在忙，忽略点击
     if (this.state.avatar && this.state.avatar.isBusy()) {
       this.ui.showToast('稍等，正在干活呢...', 'info');
@@ -485,9 +493,14 @@ class FarmGame {
    * Phase 6: 运行小人动作流程（走过去 → 执行动作 → 回调）
    */
   async runAvatarAction(plot, actionType, callback) {
+    this.actionInProgress = true;
     const avatar = this.state.avatar;
     if (!avatar) {
-      await callback();
+      try {
+        await callback();
+      } finally {
+        this.actionInProgress = false;
+      }
       return;
     }
     
@@ -502,18 +515,28 @@ class FarmGame {
     return new Promise((resolve) => {
       // 1. 小人走向目标地块
       avatar.moveTo(plot.x, plot.y, plotSize, gap, offsetX, offsetY, () => {
-        // 2. 到达后执行动作动画
-        // Phase 6: 触发对应粒子效果
+        // 2. 到达后执行动作动画，触发粒子效果
         const px = offsetX + plot.x * (plotSize + gap) + plotSize / 2;
         const py = offsetY + plot.y * (plotSize + gap) + plotSize / 2;
         if (this.state.particleSystem) {
           this.state.particleSystem.spawn(actionType, px, py);
+        } else {
+          this.spawnParticles(plot); // fallback 到旧粒子
         }
         
-        avatar.doAction(actionType, async () => {
-          // 3. 动作完成后执行实际业务
-          await callback();
-          resolve();
+        avatar.doAction(actionType, () => {
+          // 3. 动作完成后执行实际业务（确保 Promise 终态）
+          Promise.resolve(callback())
+            .then(() => {
+              this.actionInProgress = false;
+              resolve();
+            })
+            .catch((err) => {
+              this.actionInProgress = false;
+              console.error('Avatar action callback failed:', err);
+              this.ui.showToast('操作失败，请重试', 'error');
+              resolve(); // 确保 Promise 有终态，避免永久挂起
+            });
         });
       });
     });
@@ -523,6 +546,8 @@ class FarmGame {
    * Phase 6: 同步天气状态
    */
   startWeatherSync() {
+    // 防御性清理，防止重复创建
+    if (this.weatherTimer) clearInterval(this.weatherTimer);
     // 立即获取一次天气
     this.fetchWeather();
     // 每60秒同步一次
@@ -734,6 +759,11 @@ class FarmGame {
       clearInterval(this.weatherTimer);
       this.weatherTimer = null;
     }
+    // Phase 6: 清理新模块状态
+    if (this.state.avatar) this.state.avatar.clearQueue();
+    if (this.state.particleSystem) this.state.particleSystem.clear();
+    if (this.state.weatherEffects) this.state.weatherEffects.setWeather('sunny');
+    this.actionInProgress = false;
     network.disconnect();
   }
 }

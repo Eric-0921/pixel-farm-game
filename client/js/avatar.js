@@ -20,6 +20,7 @@ class PixelAvatar {
     this.idleTime = 0;
     this.blinkTimer = 0;
     this.blinking = false;
+    this.blinkInterval = 3000 + Math.random() * 2000; // 3-5秒随机
     this.stretching = false;
     this.umbrella = false;
     this.weather = 'sunny';
@@ -77,13 +78,15 @@ class PixelAvatar {
       if (this.scaleY > 1.05) this.breathDir = -1;
       if (this.scaleY < 1.0) { this.scaleY = 1.0; this.breathDir = 1; }
 
-      // 眨眼（3-5秒随机）
-      if (this.blinkTimer > 3000 + Math.random() * 2000) {
+      // 眨眼（3-5秒随机，持续200ms）
+      if (!this.blinking && this.blinkTimer > this.blinkInterval) {
         this.blinking = true;
-        if (this.blinkTimer > 3200 + Math.random() * 2000) {
-          this.blinking = false;
-          this.blinkTimer = 0;
-        }
+        this.blinkTimer = 0;
+      }
+      if (this.blinking && this.blinkTimer > 200) {
+        this.blinking = false;
+        this.blinkTimer = 0;
+        this.blinkInterval = 3000 + Math.random() * 2000;
       }
 
       // 伸懒腰（10秒无操作）
@@ -147,12 +150,12 @@ class PixelAvatar {
           this.walkFrame = (this.walkFrame + 1) % 2;
         }
       }
-
-      // 雨天撑伞
-      this.umbrella = (this.weather === 'rainy');
     }
+    
+    // 雨天撑伞（所有状态）
+    this.umbrella = (this.weather === 'rainy');
 
-    else if (this.state === 'acting') {
+    if (this.state === 'acting') {
       this.idleTime = 0;
       this.actionTimer += dt;
 

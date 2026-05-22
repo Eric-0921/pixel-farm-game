@@ -4,6 +4,7 @@ const config = require('./config');
 const { initDatabase } = require('./database');
 const { initWebSocketServer } = require('./websocket');
 const { startCropGrowthJob } = require('./jobs/cropGrowthJob');
+const { startWeatherCycle } = require('./weather');
 const notifier = require('./notifications/notifier');
 const inAppProvider = require('./notifications/inAppProvider');
 const { seedDemoData } = require('./scripts/seed-demo');
@@ -22,6 +23,7 @@ initWebSocketServer(server);
 
 // 启动定时任务
 startCropGrowthJob();
+startWeatherCycle();
 
 // 启动服务器
 server.listen(config.port, async () => {

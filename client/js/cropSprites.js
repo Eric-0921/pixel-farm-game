@@ -288,10 +288,9 @@ class CropSpriteRenderer {
     if (!def) return { stageIdx: 0, stageProgress: 0 };
 
     const totalStages = def.stages.length;
-    // 进度 0.0~1.0 映射到所有阶段
-    const raw = progress * (totalStages - 1);
-    const stageIdx = Math.min(totalStages - 1, Math.floor(raw));
-    const stageProgress = raw - stageIdx;
+    // 进度 0.0~1.0 均匀映射到所有阶段（修复：原来成熟阶段仅在 progress===1.0 时显示）
+    const stageIdx = Math.min(totalStages - 1, Math.floor(progress * totalStages));
+    const stageProgress = (progress * totalStages) - stageIdx;
     return { stageIdx, stageProgress };
   }
 

@@ -1,15 +1,16 @@
 class Particle {
-  constructor(x, y, color, vx, vy, life, size = 2) {
+  constructor(x, y, color, vx, vy, life, size = 2, gravity = 0) {
     this.x = x; this.y = y;
     this.color = color;
     this.vx = vx; this.vy = vy;
     this.life = life; this.maxLife = life;
     this.size = size;
+    this.gravity = gravity;
   }
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    // 重力因场景而异，在ParticleSystem.spawn中预设vy方向
+    this.vy += this.gravity; // 应用重力
     this.life--;
   }
   draw(ctx) {
@@ -47,7 +48,8 @@ class ParticleSystem {
         (Math.random() - 0.5) * cfg.vx * 2,
         cfg.vy + (Math.random() - 0.5),
         cfg.life,
-        cfg.size
+        cfg.size,
+        cfg.gravity
       ));
     }
   }
