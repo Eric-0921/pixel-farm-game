@@ -38,6 +38,8 @@ function getFarmByUserId(userId) {
         x: plot.x,
         y: plot.y,
         status: plot.status,
+        soil_moisture: plot.soil_moisture,
+        soil_fertility: plot.soil_fertility,
         planting_id: null,
         crop_type_id: null,
         planted_at: null,
@@ -50,7 +52,9 @@ function getFarmByUserId(userId) {
         color: null,
         stages: null,
         is_mature: false,
-        is_watered: false
+        is_watered: false,
+        pest_infected: 0,
+        health_score: null
       };
     }
 
@@ -70,6 +74,10 @@ function getFarmByUserId(userId) {
         boost = config.game.waterBoostMultiplier;
       }
     }
+    // growth 肥料加速
+    if (planting.fertilizer_applied) {
+      boost *= 1.3;
+    }
 
     const growthTime = cropType ? cropType.growth_time : 60;
     const progress = Math.min(1.0, (elapsed * boost) / growthTime);
@@ -80,6 +88,8 @@ function getFarmByUserId(userId) {
       x: plot.x,
       y: plot.y,
       status: plot.status,
+      soil_moisture: plot.soil_moisture,
+      soil_fertility: plot.soil_fertility,
       planting_id: planting.id,
       crop_type_id: planting.crop_type_id,
       planted_at: planting.planted_at,
@@ -92,7 +102,9 @@ function getFarmByUserId(userId) {
       color: cropType ? cropType.color : '#4a7c32',
       stages: cropType ? cropType.stages : 4,
       is_mature: progress >= 1.0,
-      is_watered: isWatered
+      is_watered: isWatered,
+      pest_infected: planting.pest_infected || 0,
+      health_score: planting.health_score
     };
   });
 
@@ -145,12 +157,13 @@ function plantCrop(userId, plotId, cropTypeId) {
   // 创建种植记录
   const now = new Date().toISOString();
   db.prepare(`
-    INSERT INTO plantings (plot_id, crop_type_id, planted_at, watered_at, harvested_at, growth_progress, is_notified)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(plotId, cropTypeId, now, null, null, 0, 0);
+    INSERT INTO plantings (plot_id, crop_type_id, planted_at, watered_at, harvested_at, growth_progress, is_notified, pest_infected, health_score, fertilizer_applied)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(plotId, cropTypeId, now, null, null, 0, 0, 0, 100, 0);
 
-  // 更新地块状态
-  db.prepare("UPDATE plots SET status = 'planted' WHERE id = ?").run(plotId);
+  // 更新地块状态，消耗少量水分
+  const newMoisture = Math.max(0, (plot.soil_moisture || 50) - 5);
+  db.prepare("UPDATE plots SET status = 'planted', soil_moisture = ? WHERE id = ?").run(newMoisture, plotId);
 
   // 更新种植统计
   try {
@@ -192,6 +205,10 @@ function waterCrop(userId, plotId) {
   // 更新浇水时间
   const now = new Date().toISOString();
   db.prepare('UPDATE plantings SET watered_at = ? WHERE id = ?').run(now, planting.id);
+
+  // 增加土壤湿度
+  const newMoisture = Math.min(100, (plot.soil_moisture || 50) + 30);
+  db.prepare('UPDATE plots SET soil_moisture = ? WHERE id = ?').run(newMoisture, plotId);
 
   // 更新浇水统计
   try {
@@ -248,21 +265,36 @@ function harvestCrop(userId, plotId) {
       boost = config.game.waterBoostMultiplier;
     }
   }
+  if (planting.fertilizer_applied) {
+    boost *= 1.3;
+  }
   const progress = Math.min(1.0, (elapsed * boost) / cropType.growth_time);
 
   if (progress < 1.0) {
     throw new Error('作物尚未成熟');
   }
 
+  // 健康度影响产量
+  let healthFactor = 1.0;
+  const health = planting.health_score || 100;
+  if (health < 50) {
+    healthFactor = 0.8;
+  } else if (health > 80) {
+    healthFactor = 1.2;
+  }
+  const earned = Math.floor(cropType.sell_price * healthFactor);
+
   // 更新种植记录为已收获
   const harvestTime = new Date().toISOString();
   db.prepare('UPDATE plantings SET harvested_at = ?, growth_progress = 1 WHERE id = ?').run(harvestTime, planting.id);
 
-  // 重置地块状态
-  db.prepare("UPDATE plots SET status = 'empty' WHERE id = ?").run(plotId);
+  // 重置地块状态和土壤
+  const newMoisture = 50;
+  const newFertility = Math.max(30, (plot.soil_fertility || 50) - 10);
+  db.prepare("UPDATE plots SET status = 'empty', soil_moisture = ?, soil_fertility = ? WHERE id = ?").run(newMoisture, newFertility, plotId);
 
   // 增加用户金币和经验
-  db.prepare('UPDATE users SET coins = coins + ?, experience = experience + 10 WHERE id = ?').run(cropType.sell_price, userId);
+  db.prepare('UPDATE users SET coins = coins + ?, experience = experience + 10 WHERE id = ?').run(earned, userId);
 
   // 更新收获统计和最大金币
   try {
@@ -278,9 +310,103 @@ function harvestCrop(userId, plotId) {
   return {
     plotId,
     cropName: cropType.name,
-    earned: cropType.sell_price,
-    experience: 10
+    earned,
+    experience: 10,
+    healthFactor
   };
+}
+
+/**
+ * 施肥
+ */
+function applyFertilizer(userId, plotId, fertilizerId) {
+  const db = getDatabase();
+
+  // 验证地块属于用户
+  const plot = db.prepare('SELECT * FROM plots WHERE id = ?').get(plotId);
+  if (!plot) {
+    throw new Error('地块不存在');
+  }
+
+  const farm = db.prepare('SELECT * FROM farms WHERE id = ?').get(plot.farm_id);
+  if (!farm || farm.user_id !== userId) {
+    throw new Error('无权操作该地块');
+  }
+
+  // 获取肥料信息
+  const fertilizer = db.prepare('SELECT * FROM fertilizers WHERE id = ?').get(fertilizerId);
+  if (!fertilizer) {
+    throw new Error('肥料不存在');
+  }
+
+  // 检查金币
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user || user.coins < fertilizer.price) {
+    throw new Error('金币不足');
+  }
+
+  // 扣除金币
+  db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').run(fertilizer.price, userId);
+
+  const now = new Date().toISOString();
+  let newFertility = null;
+
+  // 应用效果
+  if (fertilizer.type === 'growth') {
+    // 标记种植记录使用生长肥料
+    const planting = db.prepare('SELECT * FROM plantings WHERE plot_id = ? AND harvested_at IS NULL').get(plotId);
+    if (planting) {
+      db.prepare('UPDATE plantings SET fertilizer_applied = 1 WHERE id = ?').run(planting.id);
+    }
+  } else if (fertilizer.type === 'pest') {
+    // 插入防虫剂记录
+    const expiresAt = new Date(Date.now() + fertilizer.duration * 1000).toISOString();
+    db.prepare('INSERT INTO plot_fertilizers (plot_id, fertilizer_id, applied_at, expires_at) VALUES (?, ?, ?, ?)').run(plotId, fertilizerId, now, expiresAt);
+  } else if (fertilizer.type === 'soil') {
+    // 提升土壤肥力
+    newFertility = Math.min(100, (plot.soil_fertility || 50) + fertilizer.effect_value);
+    db.prepare('UPDATE plots SET soil_fertility = ? WHERE id = ?').run(newFertility, plotId);
+  }
+
+  // 统一插入 plot_fertilizers 记录（pest 已插入，其他类型也记录）
+  if (fertilizer.type !== 'pest') {
+    const expiresAt = fertilizer.duration > 0 ? new Date(Date.now() + fertilizer.duration * 1000).toISOString() : null;
+    db.prepare('INSERT INTO plot_fertilizers (plot_id, fertilizer_id, applied_at, expires_at) VALUES (?, ?, ?, ?)').run(plotId, fertilizerId, now, expiresAt);
+  }
+
+  return { fertilizer, cost: fertilizer.price, newFertility };
+}
+
+/**
+ * 除虫
+ */
+function removePest(userId, plotId) {
+  const db = getDatabase();
+
+  // 验证地块属于用户
+  const plot = db.prepare('SELECT * FROM plots WHERE id = ?').get(plotId);
+  if (!plot) {
+    throw new Error('地块不存在');
+  }
+
+  const farm = db.prepare('SELECT * FROM farms WHERE id = ?').get(plot.farm_id);
+  if (!farm || farm.user_id !== userId) {
+    throw new Error('无权操作该地块');
+  }
+
+  const planting = db.prepare('SELECT * FROM plantings WHERE plot_id = ? AND harvested_at IS NULL').get(plotId);
+  if (!planting) {
+    throw new Error('该地块没有作物');
+  }
+
+  if (!planting.pest_infected) {
+    throw new Error('该地块没有虫害');
+  }
+
+  const newHealth = Math.min(100, (planting.health_score || 0) + 20);
+  db.prepare('UPDATE plantings SET pest_infected = 0, health_score = ? WHERE id = ?').run(newHealth, planting.id);
+
+  return { success: true };
 }
 
 /**
@@ -311,5 +437,7 @@ module.exports = {
   getFriendFarm,
   plantCrop,
   waterCrop,
-  harvestCrop
+  harvestCrop,
+  applyFertilizer,
+  removePest
 };

@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const { validatePositiveInteger } = require('../utils/validators');
 const farmService = require('../services/farmService');
+const weatherService = require('../weather');
 
 const router = express.Router();
 
@@ -30,6 +31,19 @@ router.get('/', (req, res, next) => {
     if (isBusinessError(err)) {
       return res.status(400).json({ success: false, message: err.message });
     }
+    next(err);
+  }
+});
+
+/**
+ * GET /api/farm/weather
+ * 获取当前天气
+ */
+router.get('/weather', (req, res, next) => {
+  try {
+    res.json({ success: true, data: weatherService.getWeather() });
+  } catch (err) {
+    console.error('获取天气失败:', err);
     next(err);
   }
 });
@@ -141,6 +155,69 @@ router.post('/harvest', (req, res, next) => {
     res.json({ success: true, message: '收获成功', data: result });
   } catch (err) {
     console.error('收获失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+});
+
+/**
+ * POST /api/farm/fertilize
+ * 施肥
+ * Body: { plotId, fertilizerId }
+ */
+router.post('/fertilize', (req, res, next) => {
+  try {
+    const { plotId, fertilizerId } = req.body;
+    
+    if (!plotId || !fertilizerId) {
+      return res.status(400).json({ success: false, message: '缺少参数' });
+    }
+    
+    const plotValidation = validatePositiveInteger(plotId, '地块ID');
+    if (!plotValidation.valid) {
+      return res.status(400).json({ success: false, message: plotValidation.message });
+    }
+    
+    const fertValidation = validatePositiveInteger(fertilizerId, '肥料ID');
+    if (!fertValidation.valid) {
+      return res.status(400).json({ success: false, message: fertValidation.message });
+    }
+    
+    const result = farmService.applyFertilizer(req.userId, plotValidation.value, fertValidation.value);
+    res.json({ success: true, message: '施肥成功', data: result });
+  } catch (err) {
+    console.error('施肥失败:', err);
+    if (isBusinessError(err)) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+});
+
+/**
+ * POST /api/farm/remove-pest
+ * 除虫
+ * Body: { plotId }
+ */
+router.post('/remove-pest', (req, res, next) => {
+  try {
+    const { plotId } = req.body;
+    
+    if (!plotId) {
+      return res.status(400).json({ success: false, message: '缺少地块ID' });
+    }
+    
+    const validation = validatePositiveInteger(plotId, '地块ID');
+    if (!validation.valid) {
+      return res.status(400).json({ success: false, message: validation.message });
+    }
+    
+    const result = farmService.removePest(req.userId, validation.value);
+    res.json({ success: true, message: '除虫成功', data: result });
+  } catch (err) {
+    console.error('除虫失败:', err);
     if (isBusinessError(err)) {
       return res.status(400).json({ success: false, message: err.message });
     }

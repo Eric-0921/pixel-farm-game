@@ -10,7 +10,11 @@ class FarmGame {
       isLoading: false,
       particles: [],
       viewingFriendFarm: false,
-      currentFriendId: null
+      currentFriendId: null,
+      // Phase 6: 新模块
+      avatar: null,
+      particleSystem: (typeof ParticleSystem !== 'undefined') ? new ParticleSystem() : null,
+      weatherEffects: (typeof WeatherEffects !== 'undefined') ? new WeatherEffects(this.renderer.gameWidth, this.renderer.gameHeight) : null
     };
     this.mouseX = 0;
     this.mouseY = 0;
@@ -19,6 +23,7 @@ class FarmGame {
     this.refreshInterval = 5000;
     this.refreshTimer = null;
     this.wsListenersAdded = false;
+    this.avatarInitialized = false;
     this.resizeHandler = null;
     this.visibilityHandler = null;
     this.mouseMoveHandler = null;
@@ -43,12 +48,12 @@ class FarmGame {
     this.startGameLoop();
     this.startAutoRefresh();
     this.setupVisibilityHandler();
+    this.startWeatherSync();
     
     if (!this.wsListenersAdded) {
       this.wsCropMatureHandler = (data) => {
         this.ui.showToast(data.message, 'success');
         if (typeof voiceManager !== 'undefined') {
-          // 尝试从消息中提取作物名称，否则直接播报消息
           const match = data.message && data.message.match(/您的(.+?)已成熟/);
           if (match) voiceManager.speakCropMature(match[1]);
           else voiceManager.speak(data.message);
@@ -70,6 +75,21 @@ class FarmGame {
       network.on('notification', this.wsNotificationHandler);
       network.on('achievement_unlocked', this.wsAchievementHandler);
       this.wsListenersAdded = true;
+    }
+    
+    // Phase 6: 初始化像素小人位置（农场左下角）
+    if (!this.avatarInitialized && typeof PixelAvatar !== 'undefined') {
+      const { width, height } = this.state.farmData || { width: 8, height: 6 };
+      const plotSize = 28;
+      const gap = 2;
+      const totalWidth = width * (plotSize + gap);
+      const totalHeight = height * (plotSize + gap);
+      const offsetX = Math.floor((this.renderer.gameWidth - totalWidth) / 2);
+      const offsetY = Math.floor((this.renderer.gameHeight - totalHeight) / 2) + 8;
+      const startX = offsetX + 0 * (plotSize + gap) + plotSize / 2;
+      const startY = offsetY + (height - 1) * (plotSize + gap) + plotSize / 2;
+      this.state.avatar = new PixelAvatar(startX, startY);
+      this.avatarInitialized = true;
     }
     
     this.resizeHandler = () => this.fitCanvas();
@@ -276,6 +296,12 @@ class FarmGame {
     const tool = this.ui.currentTool;
     this.state.selectedPlot = plot;
     
+    // Phase 6: 如果小人正在忙，忽略点击
+    if (this.state.avatar && this.state.avatar.isBusy()) {
+      this.ui.showToast('稍等，正在干活呢...', 'info');
+      return;
+    }
+    
     try {
       switch (tool) {
         case 'plant': await this.handlePlant(plot); break;
@@ -302,21 +328,40 @@ class FarmGame {
       this.ui.showSeedModal();
       return;
     }
-    try {
-      const result = await network.post('/api/farm/plant', {
-        plotId: plot.plot_id,
-        cropTypeId: this.ui.selectedSeed
+    
+    // Phase 6: 小人走过去执行动作
+    if (this.state.avatar) {
+      await this.runAvatarAction(plot, 'plant', async () => {
+        const result = await network.post('/api/farm/plant', {
+          plotId: plot.plot_id,
+          cropTypeId: this.ui.selectedSeed
+        });
+        if (result.success) {
+          this.ui.showToast('种植成功！', 'success');
+          if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('种植');
+          await this.refreshFarm();
+        } else {
+          this.ui.showToast(result.message, 'error');
+        }
       });
-      if (result.success) {
-        this.ui.showToast('种植成功！', 'success');
-        if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('种植');
-        this.spawnParticles(plot);
-        await this.refreshFarm();
-      } else {
-        this.ui.showToast(result.message, 'error');
+    } else {
+      // 回退：直接执行
+      try {
+        const result = await network.post('/api/farm/plant', {
+          plotId: plot.plot_id,
+          cropTypeId: this.ui.selectedSeed
+        });
+        if (result.success) {
+          this.ui.showToast('种植成功！', 'success');
+          if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('种植');
+          this.spawnParticles(plot);
+          await this.refreshFarm();
+        } else {
+          this.ui.showToast(result.message, 'error');
+        }
+      } catch (err) {
+        this.ui.showToast('种植失败', 'error');
       }
-    } catch (err) {
-      this.ui.showToast('种植失败', 'error');
     }
   }
 
@@ -325,7 +370,8 @@ class FarmGame {
       this.ui.showToast('该地块没有作物', 'error');
       return;
     }
-    try {
+    
+    const doWater = async () => {
       let result;
       if (this.state.viewingFriendFarm && this.state.currentFriendId) {
         result = await network.post(`/api/crops/water-friend/${this.state.currentFriendId}/${plot.plot_id}`);
@@ -338,7 +384,6 @@ class FarmGame {
           : '浇水成功！生长速度提升';
         this.ui.showToast(msg, 'success');
         if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('浇水');
-        this.spawnParticles(plot);
         if (this.state.viewingFriendFarm) {
           await this.loadFriendFarm(this.state.currentFriendId);
         } else {
@@ -347,8 +392,14 @@ class FarmGame {
       } else {
         this.ui.showToast(result.message, 'error');
       }
-    } catch (err) {
-      this.ui.showToast('浇水失败', 'error');
+    };
+    
+    // Phase 6: 小人走过去执行动作
+    if (!this.state.viewingFriendFarm && this.state.avatar) {
+      await this.runAvatarAction(plot, 'water', doWater);
+    } else {
+      this.spawnParticles(plot);
+      await doWater();
     }
   }
 
@@ -365,18 +416,24 @@ class FarmGame {
       this.ui.showToast('作物尚未成熟', 'error');
       return;
     }
-    try {
+    
+    const doHarvest = async () => {
       const result = await network.post('/api/farm/harvest', { plotId: plot.plot_id });
       if (result.success) {
         this.ui.showToast(`收获成功！获得 ${result.data.earned} 金币`, 'success');
         if (typeof voiceManager !== 'undefined') voiceManager.speakSuccess('收获');
-        this.spawnParticles(plot);
         await this.refreshFarm();
       } else {
         this.ui.showToast(result.message, 'error');
       }
-    } catch (err) {
-      this.ui.showToast('收获失败', 'error');
+    };
+    
+    // Phase 6: 小人走过去执行动作
+    if (this.state.avatar) {
+      await this.runAvatarAction(plot, 'harvest', doHarvest);
+    } else {
+      this.spawnParticles(plot);
+      await doHarvest();
     }
   }
 
@@ -421,6 +478,72 @@ class FarmGame {
       }
     } catch (err) {
       this.ui.showToast('一键帮助失败: ' + err.message, 'error');
+    }
+  }
+
+  /**
+   * Phase 6: 运行小人动作流程（走过去 → 执行动作 → 回调）
+   */
+  async runAvatarAction(plot, actionType, callback) {
+    const avatar = this.state.avatar;
+    if (!avatar) {
+      await callback();
+      return;
+    }
+    
+    const { width, height } = this.state.farmData || { width: 8, height: 6 };
+    const plotSize = 28;
+    const gap = 2;
+    const totalWidth = width * (plotSize + gap);
+    const totalHeight = height * (plotSize + gap);
+    const offsetX = Math.floor((this.renderer.gameWidth - totalWidth) / 2);
+    const offsetY = Math.floor((this.renderer.gameHeight - totalHeight) / 2) + 8;
+    
+    return new Promise((resolve) => {
+      // 1. 小人走向目标地块
+      avatar.moveTo(plot.x, plot.y, plotSize, gap, offsetX, offsetY, () => {
+        // 2. 到达后执行动作动画
+        // Phase 6: 触发对应粒子效果
+        const px = offsetX + plot.x * (plotSize + gap) + plotSize / 2;
+        const py = offsetY + plot.y * (plotSize + gap) + plotSize / 2;
+        if (this.state.particleSystem) {
+          this.state.particleSystem.spawn(actionType, px, py);
+        }
+        
+        avatar.doAction(actionType, async () => {
+          // 3. 动作完成后执行实际业务
+          await callback();
+          resolve();
+        });
+      });
+    });
+  }
+
+  /**
+   * Phase 6: 同步天气状态
+   */
+  startWeatherSync() {
+    // 立即获取一次天气
+    this.fetchWeather();
+    // 每60秒同步一次
+    this.weatherTimer = setInterval(() => this.fetchWeather(), 60000);
+  }
+
+  async fetchWeather() {
+    try {
+      const result = await network.get('/api/farm/weather');
+      if (result.success && result.data) {
+        const weather = result.data.weather || 'sunny';
+        if (this.state.weatherEffects) {
+          this.state.weatherEffects.setWeather(weather);
+        }
+        if (this.state.avatar) {
+          this.state.avatar.setWeather(weather);
+        }
+      }
+    } catch (err) {
+      // 天气获取失败不影响游戏
+      console.log('天气获取失败:', err.message);
     }
   }
 
@@ -482,7 +605,23 @@ class FarmGame {
   }
 
   update(timestamp) {
+    // Phase 6: 更新粒子系统
+    if (this.state.particleSystem) {
+      this.state.particleSystem.update();
+    }
+    // 兼容旧粒子
     this.updateParticles();
+    
+    // Phase 6: 更新天气效果
+    if (this.state.weatherEffects) {
+      this.state.weatherEffects.update();
+    }
+    
+    // Phase 6: 更新像素小人
+    if (this.state.avatar) {
+      this.state.avatar.update(16);
+    }
+    
     if (timestamp - this.lastUpdate > 3000) {
       this.lastUpdate = timestamp;
       if (this.state.farmData && this.state.farmData.plots) {
@@ -508,6 +647,13 @@ class FarmGame {
     // 如果 canvas 不可见（长者版首页模式下），跳过渲染以节省性能
     if (this.canvas.offsetParent === null) return;
     this.renderer.renderFarm(this.state.farmData, this.state);
+    
+    // Phase 6: 绘制新粒子系统
+    if (this.state.particleSystem) {
+      this.state.particleSystem.draw(this.renderer.ctx);
+    }
+    
+    // 兼容旧粒子
     if (this.state.particles.length > 0) {
       this.renderer.drawParticles(this.state.particles);
     }
@@ -583,6 +729,10 @@ class FarmGame {
       if (this.wsNotificationHandler) network.off('notification', this.wsNotificationHandler);
       if (this.wsAchievementHandler) network.off('achievement_unlocked', this.wsAchievementHandler);
       this.wsListenersAdded = false;
+    }
+    if (this.weatherTimer) {
+      clearInterval(this.weatherTimer);
+      this.weatherTimer = null;
     }
     network.disconnect();
   }

@@ -51,13 +51,21 @@ class PixelRenderer {
     
     // 草地动画偏移
     this.grassAnimOffset = 0;
+    
+    // Phase 6: 集成新渲染模块（如果可用）
+    this.cropSprites = (typeof CropSpriteRenderer !== 'undefined') ? new CropSpriteRenderer() : null;
+    this.soilRenderer = (typeof SoilRenderer !== 'undefined') ? new SoilRenderer() : null;
   }
 
   /**
    * 清除画布
    */
-  clear() {
-    this.ctx.fillStyle = this.colors.grass;
+  clear(weatherEffects) {
+    // Phase 6: 根据天气使用不同草地颜色
+    const grassColor = (weatherEffects && weatherEffects.getGrassColor) 
+      ? weatherEffects.getGrassColor() 
+      : this.colors.grass;
+    this.ctx.fillStyle = grassColor;
     this.ctx.fillRect(0, 0, this.gameWidth, this.gameHeight);
     
     // 绘制草地纹理（像素点）
@@ -76,7 +84,7 @@ class PixelRenderer {
     this.frameCount++;
     this.grassAnimOffset = Math.sin(this.frameCount * 0.02) * 1;
     
-    this.clear();
+    this.clear(state.weatherEffects);
     
     if (!farmData || !farmData.plots) {
       // 绘制等待提示
@@ -98,12 +106,27 @@ class PixelRenderer {
     const offsetX = Math.floor((this.gameWidth - totalWidth) / 2);
     const offsetY = Math.floor((this.gameHeight - totalHeight) / 2) + 8;
     
+    // Phase 6: 绘制天气背景层（在地块下方）
+    if (state.weatherEffects) {
+      state.weatherEffects.drawBackground(this.ctx);
+    }
+    
     // 绘制每个地块
     plots.forEach(plot => {
       const x = offsetX + plot.x * (plotSize + gap);
       const y = offsetY + plot.y * (plotSize + gap);
-      this.drawPlot(x, y, plotSize, plot, state);
+      this.drawPlot(x, y, plotSize, plot, state, offsetX, offsetY, plotSize, gap);
     });
+    
+    // Phase 6: 绘制像素小人
+    if (state.avatar) {
+      state.avatar.draw(this.ctx, this.frameCount);
+    }
+    
+    // Phase 6: 绘制天气效果（雨滴等，在最上层）
+    if (state.weatherEffects) {
+      state.weatherEffects.drawRain(this.ctx);
+    }
     
     // 绘制农场标题
     this.drawText(farmData.name || '我的农场', this.gameWidth / 2, 12, {
@@ -129,25 +152,29 @@ class PixelRenderer {
   /**
    * 绘制单个地块
    */
-  drawPlot(x, y, size, plot, state) {
+  drawPlot(x, y, size, plot, state, offsetX, offsetY, plotSize, gap) {
     const isHovered = state.hoverPlot && state.hoverPlot.plot_id === plot.plot_id;
     const isSelected = state.selectedPlot && state.selectedPlot.plot_id === plot.plot_id;
     
-    // 绘制地块背景
-    let bgColor = this.colors.grassDark;
-    
-    if (plot.status === 'empty') {
-      // 空地块 - 带草皮纹理
-      bgColor = this.colors.grassDark;
-    } else if (plot.status === 'planted') {
-      bgColor = plot.is_watered ? this.colors.soilWet : this.colors.soil;
-    } else if (plot.status === 'withered') {
-      bgColor = this.colors.withered;
+    // Phase 6: 使用土壤渲染器（如果可用且是种植状态）
+    if (this.soilRenderer && plot.status === 'planted') {
+      this.soilRenderer.drawSoil(this.ctx, x, y, size, plot);
+    } else {
+      // 原有绘制逻辑作为 fallback
+      // 绘制地块背景
+      let bgColor = this.colors.grassDark;
+      
+      if (plot.status === 'empty') {
+        bgColor = this.colors.grassDark;
+      } else if (plot.status === 'planted') {
+        bgColor = plot.is_watered ? this.colors.soilWet : this.colors.soil;
+      } else if (plot.status === 'withered') {
+        bgColor = this.colors.withered;
+      }
+      
+      this.ctx.fillStyle = bgColor;
+      this.ctx.fillRect(x, y, size, size);
     }
-    
-    // 地块主体
-    this.ctx.fillStyle = bgColor;
-    this.ctx.fillRect(x, y, size, size);
     
     // 空地块额外绘制草皮效果
     if (plot.status === 'empty') {
@@ -187,7 +214,12 @@ class PixelRenderer {
     
     // 绘制作物
     if (plot.status === 'planted' && plot.crop_type_id) {
-      this.drawCrop(x, y, size, plot);
+      // Phase 6: 优先使用独立作物图案
+      if (this.cropSprites) {
+        this.cropSprites.drawCrop(this.ctx, x, y, size, plot, this.frameCount);
+      } else {
+        this.drawCrop(x, y, size, plot);
+      }
     }
     
     // 绘制枯萎标记

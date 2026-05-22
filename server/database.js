@@ -14,6 +14,18 @@ function ensureDir() {
   }
 }
 
+function addColumnIfNotExists(table, column, type, defaultVal) {
+  try {
+    const def = defaultVal !== undefined ? `DEFAULT ${defaultVal}` : '';
+    sqliteDb.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type} ${def}`.trim()).run();
+  } catch (e) {
+    if (!e.message.includes('duplicate column name')) {
+      console.error(`添加列 ${table}.${column} 失败:`, e.message);
+      throw e;
+    }
+  }
+}
+
 function initDatabase() {
   console.log('🌱 初始化 SQLite 数据库...');
   ensureDir();
@@ -168,6 +180,37 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_checkins_user_date ON checkins(user_id, checkin_date);
   `);
 
+  // Phase 6: 添加新列（兼容已有数据）
+  addColumnIfNotExists('plots', 'soil_moisture', 'INTEGER', 50);
+  addColumnIfNotExists('plots', 'soil_fertility', 'INTEGER', 50);
+  addColumnIfNotExists('plantings', 'pest_infected', 'INTEGER', 0);
+  addColumnIfNotExists('plantings', 'health_score', 'INTEGER', 100);
+  addColumnIfNotExists('plantings', 'fertilizer_applied', 'INTEGER', 0);
+
+  // Phase 6: 肥料定义表
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS fertilizers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      effect_value INTEGER NOT NULL,
+      duration INTEGER NOT NULL,
+      price INTEGER NOT NULL,
+      color TEXT,
+      description TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS plot_fertilizers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plot_id INTEGER NOT NULL,
+      fertilizer_id INTEGER NOT NULL,
+      applied_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      expires_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_plots_soil ON plots(soil_moisture, soil_fertility);
+  `);
+
   // 初始化 crop_types（如果不存在）
   const count = sqliteDb.prepare('SELECT COUNT(*) as count FROM crop_types').get();
   if (count.count === 0) {
@@ -186,6 +229,24 @@ function initDatabase() {
       stmt.run(...crop);
     }
     console.log('🌾 已初始化默认作物数据');
+  }
+
+  // 初始化 fertilizers（如果不存在）
+  const fertCount = sqliteDb.prepare('SELECT COUNT(*) as count FROM fertilizers').get();
+  if (fertCount.count === 0) {
+    const stmt = sqliteDb.prepare(`
+      INSERT INTO fertilizers (name, type, effect_value, duration, price, color, description)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const fertilizers = [
+      ['营养液', 'growth', 30, 600, 15, '#4a9eff', '生长速度+30%，持续10分钟'],
+      ['防虫剂', 'pest', 1, 86400, 20, '#27ae60', '防止虫害，持续24小时'],
+      ['有机肥', 'soil', 20, 0, 25, '#8B6914', '提升土壤肥力+20，永久']
+    ];
+    for (const f of fertilizers) {
+      stmt.run(...f);
+    }
+    console.log('🧪 已初始化默认肥料数据');
   }
 
   console.log('✅ SQLite 数据库就绪');

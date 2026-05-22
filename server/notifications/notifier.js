@@ -62,6 +62,23 @@ class Notifier {
     };
     return this.send(userId, notification, ['in_app']);
   }
+
+  /**
+   * 作物低健康度通知
+   * @param {number} userId - 用户ID
+   * @param {string} cropName - 作物名称
+   * @param {Object} data - 额外数据
+   */
+  async notifyLowHealth(userId, cropName, data = {}) {
+    const notification = {
+      type: 'low_health',
+      title: '作物健康度危急！',
+      content: `你的 ${cropName} 健康度很低，请尽快浇水或施肥！`,
+      body: `您的 ${cropName} 健康度很低，请尽快照顾它 🌱`,
+      data
+    };
+    return this.send(userId, notification, ['in_app']);
+  }
 }
 
 // 单例实例
